@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const musicInputRef = useRef<HTMLInputElement>(null);
 
   // Check if API key is configured
+  // Note: Vite replaces process.env.API_KEY during build
   const isKeyConfigured = process.env.API_KEY && process.env.API_KEY !== "" && process.env.API_KEY !== "undefined";
 
   useEffect(() => {
@@ -95,27 +96,46 @@ const App: React.FC = () => {
             <div className="max-w-xl mx-auto mt-12 p-10 bg-white dark:bg-slate-900 rounded-[3rem] border border-blue-100 dark:border-blue-900/30 shadow-2xl text-left space-y-6">
               <div className="flex items-center gap-4 text-blue-600">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <h3 className="font-black uppercase tracking-tight text-xl">API Key Required</h3>
+                <h3 className="font-black uppercase tracking-tight text-xl">Netlify Setup Guide</h3>
               </div>
-              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
-                To keep this app 100% free, you need to use your own Google AI Studio key.
-              </p>
-              <div className="space-y-3">
+              
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">⚠️ Important Naming Rule</p>
+                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                  Netlify only allows letters, numbers, and underscores. Use <code className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">API_KEY</code> exactly. Do not use hyphens like <del>GEMINI-KEY</del>.
+                </p>
+              </div>
+
+              <div className="space-y-4">
                 <div className="flex gap-4 items-start">
-                  <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</span>
-                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Get a free key from <a href="https://aistudio.google.com/" target="_blank" className="text-blue-600 underline">Google AI Studio</a></p>
+                  <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</span>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Get Key</p>
+                    <p className="text-[11px] font-bold text-slate-500">Visit <a href="https://aistudio.google.com/" target="_blank" className="text-blue-600 underline">Google AI Studio</a> and copy your free key.</p>
+                  </div>
                 </div>
                 <div className="flex gap-4 items-start">
-                  <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
-                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Add it to Netlify/Vercel as <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">API_KEY</code></p>
+                  <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Open Netlify</p>
+                    <p className="text-[11px] font-bold text-slate-500">Go to <span className="text-slate-900 dark:text-slate-100 italic">Site Settings > Environment Variables</span>.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 items-start">
+                  <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">3</span>
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Add Variable</p>
+                    <p className="text-[11px] font-bold text-slate-500">Click <span className="text-blue-600">"Add a variable"</span>. Key: <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1">API_KEY</code> | Value: <span className="italic">Your Key</span>.</p>
+                  </div>
                 </div>
               </div>
+
               <a 
                 href="https://aistudio.google.com/" 
                 target="_blank"
-                className="block w-full text-center bg-blue-600 py-5 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-colors"
+                className="block w-full text-center bg-blue-600 py-5 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-colors shadow-xl shadow-blue-500/20"
               >
-                Get My Free Key Now
+                Copy My Free Gemini Key
               </a>
             </div>
           ) : (
