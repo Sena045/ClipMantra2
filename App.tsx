@@ -26,9 +26,10 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if API key is configured
+  // Robust check for API key
+  // Vite replaces process.env.API_KEY with a string during build
   const apiKey = process.env.API_KEY;
-  const isKeyConfigured = typeof apiKey === 'string' && apiKey.length > 5;
+  const isKeyConfigured = typeof apiKey === 'string' && apiKey.length > 10;
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
@@ -110,14 +111,14 @@ const App: React.FC = () => {
                   <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</span>
                   <div className="space-y-1">
                     <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Step 1</p>
-                    <p className="text-[11px] font-bold text-slate-500">Add <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1">API_KEY</code> to Netlify Site Settings.</p>
+                    <p className="text-[11px] font-bold text-slate-500">Go to <span className="italic">Site Settings &gt; Environment Variables</span> and add <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1">API_KEY</code>.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 items-start">
                   <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
                   <div className="space-y-1">
                     <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Step 2</p>
-                    <p className="text-[11px] font-bold text-slate-500">Go to Deploys and click <span className="text-blue-600 font-bold">"Trigger deploy > Clear cache and deploy site"</span>.</p>
+                    <p className="text-[11px] font-bold text-slate-500">Go to Deploys and click <span className="text-blue-600 font-bold">"Trigger deploy &gt; Clear cache and deploy site"</span>.</p>
                   </div>
                 </div>
               </div>
@@ -125,6 +126,7 @@ const App: React.FC = () => {
               <a 
                 href="https://aistudio.google.com/" 
                 target="_blank"
+                rel="noopener noreferrer"
                 className="block w-full text-center bg-blue-600 py-5 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-colors shadow-xl shadow-blue-500/20"
               >
                 Get Free Gemini Key
