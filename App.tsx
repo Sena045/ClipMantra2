@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header.tsx';
 import Footer from './components/Footer.tsx';
@@ -74,7 +75,12 @@ const App: React.FC = () => {
       const results = await generateViralShorts(`Video Name: ${videoFile.name}`, language, frames);
       setClips(results);
     } catch (err: any) {
-      setError(err.message || "AI Analysis Aborted.");
+      console.error(err);
+      if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
+        setError("AI Quota Exhausted. The Free Tier is currently busy. Please wait 60 seconds and try again.");
+      } else {
+        setError(err.message || "AI Analysis Aborted.");
+      }
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -97,7 +103,7 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Engine v2.4 Live</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Engine v2.5 Live</span>
           </div>
           
           <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">
@@ -105,7 +111,7 @@ const App: React.FC = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-blue-600">CONVERT.</span>
           </h1>
           <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Engineered for creators. Our AI dissects your footage to find high-impact 
+            Engineered for creators. Our AI dissects your footage using multimodal analysis to find high-impact 
             moments with professional precision.
           </p>
         </section>
@@ -184,7 +190,14 @@ const App: React.FC = () => {
         {/* Error Notification */}
         {error && (
           <div className="max-w-lg mx-auto p-12 glass-card rounded-[3rem] border border-red-500/30 text-red-400 text-sm font-black uppercase tracking-[0.3em] text-center shadow-2xl shadow-red-500/10">
-             Critical Failure: {error}
+             <div className="mb-4">⚠️ API ALERT</div>
+             {error}
+             <button 
+               onClick={handleGenerate} 
+               className="mt-6 block w-full py-3 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all text-xs"
+             >
+               Retry Analysis
+             </button>
           </div>
         )}
       </main>

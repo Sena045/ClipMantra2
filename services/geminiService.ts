@@ -4,14 +4,14 @@ import { Clip, LanguagePreference } from "../types.ts";
 
 /**
  * Uses Gemini to analyze video data and suggest viral clips.
- * Using gemini-3-pro-preview for the best balance of reasoning depth and multimodal understanding.
+ * Using gemini-flash-lite-latest for maximum free-tier quota and reliability.
  */
 export const generateViralShorts = async (
   context: string, 
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
-  // Initialize the Gemini API client directly with the environment variable as per guidelines.
+  // Initialize the Gemini API client directly with the environment variable.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `You are a World-Class Short-Form Content Strategist specializing in YouTube Shorts, TikTok, and Instagram Reels. 
@@ -54,9 +54,10 @@ export const generateViralShorts = async (
   }
 
   try {
-    // Calling generateContent with gemini-3-pro-preview for high-quality reasoning and multimodal analysis.
+    // Switched to 'gemini-flash-lite-latest' to resolve the "Quota Exhausted" (429) error.
+    // Flash Lite is highly optimized for high-volume free tier usage.
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
+      model: "gemini-flash-lite-latest",
       contents: { parts },
       config: {
         systemInstruction,
@@ -79,10 +80,13 @@ export const generateViralShorts = async (
       }
     });
 
-    // Extracting text as a property from GenerateContentResponse as per guidelines.
     return JSON.parse(response.text || "[]");
   } catch (error: any) {
     console.error("Gemini Generation Error:", error);
+    // Specifically handle the 429 error message if it comes back
+    if (error.message?.includes('429') || error.status === 'RESOURCE_EXHAUSTED') {
+      throw new Error("Free Tier Quota Exceeded. Please wait 60 seconds and try again.");
+    }
     throw new Error(error instanceof Error ? error.message : "Failed to process content.");
   }
 };
