@@ -68,44 +68,54 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     let musicAudio: HTMLAudioElement | null = null;
     let audioCtx: AudioContext | null = null;
     let processorVideo: HTMLVideoElement | null = null;
+    let lastTime = 0;
+    let stuckCounter = 0;
 
     try {
       processorVideo = document.createElement('video');
-      processorVideo.style.display = 'none';
+      // Some browsers require the element to be in the DOM to play audio
+      processorVideo.style.position = 'fixed';
+      processorVideo.style.left = '-9999px';
       processorVideo.muted = false; 
       processorVideo.crossOrigin = "anonymous";
       processorVideo.playsInline = true;
       processorVideo.volume = 1.0;
       processorVideo.src = videoSrc;
-      
-      // Must append to DOM for some browsers to allow audio playback
       document.body.appendChild(processorVideo);
       
       await new Promise((resolve, reject) => {
         if (!processorVideo) return reject();
         processorVideo.oncanplaythrough = resolve;
-        processorVideo.onerror = () => reject(new Error("Video failed to load for processing"));
-        // Timeout just in case
-        setTimeout(resolve, 5000);
+        processorVideo.onerror = () => reject(new Error("Video source could not be loaded."));
+        // Force resolve if it takes too long but readyState is high enough
+        setTimeout(() => processorVideo!.readyState >= 3 ? resolve(null) : reject(new Error("Timeout loading video.")), 8000);
       });
 
       const canvas = document.createElement('canvas');
       canvas.width = processorVideo.videoWidth;
       canvas.height = processorVideo.videoHeight;
       const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) throw new Error("Canvas context failed");
+      if (!ctx) throw new Error("Canvas rendering context unavailable.");
 
       audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
       const dest = audioCtx.createMediaStreamDestination();
       
-      // Video Audio Routing
+      // Connect Video Sound
       const videoSourceNode = audioCtx.createMediaElementSource(processorVideo);
       const videoGain = audioCtx.createGain();
       videoGain.gain.value = 1.0;
       videoSourceNode.connect(videoGain);
       videoGain.connect(dest);
+      
+      // Silent destination to keep context active
+      const silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0.0001; 
+      videoGain.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
 
-      // Background Music Routing
+      // Background Music Sound
       if (useMusic && selectedMusic) {
         musicAudio = new Audio(selectedMusic.url);
         musicAudio.crossOrigin = "anonymous";
@@ -117,25 +127,26 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         musicGain.connect(dest);
       }
 
-      // Stream Construction - explicitly combine tracks
+      // Build Combined Stream
       const canvasStream = canvas.captureStream(30);
       const combinedStream = new MediaStream();
-      canvasStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
-      dest.stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+      canvasStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+      dest.stream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
 
-      // Supported MimeType detection
-      const types = [
+      // MimeType Selection (Priority for MP4)
+      const mimeTypes = [
         'video/mp4;codecs=h264,aac',
-        'video/webm;codecs=vp9,opus',
+        'video/mp4;codecs=avc1,aac',
+        'video/mp4',
         'video/webm;codecs=h264,opus',
-        'video/webm;codecs=vp8,opus',
         'video/webm'
       ];
-      let mimeType = types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+      const selectedMime = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+      const isMp4 = selectedMime.includes('mp4');
 
       const recorder = new MediaRecorder(combinedStream, { 
-        mimeType,
-        videoBitsPerSecond: 6000000,
+        mimeType: selectedMime,
+        videoBitsPerSecond: 8000000, // 8 Mbps for high quality
         audioBitsPerSecond: 128000
       });
       
@@ -144,71 +155,79 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         if (e.data.size > 0) chunks.push(e.data);
       };
 
-      const finalize = () => {
-        const isMp4 = mimeType.includes('mp4');
-        const finalBlob = new Blob(chunks, { type: mimeType });
-        const downloadUrl = URL.createObjectURL(finalBlob);
-        
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        const extension = isMp4 ? 'mp4' : 'webm';
-        link.download = `clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        URL.revokeObjectURL(downloadUrl);
-        setIsProcessing(false);
-        if (musicAudio) musicAudio.pause();
-        if (audioCtx) audioCtx.close();
+      const cleanup = () => {
+        if (recorder.state !== 'inactive') recorder.stop();
         if (processorVideo) {
           processorVideo.pause();
-          document.body.removeChild(processorVideo);
+          if (processorVideo.parentElement) document.body.removeChild(processorVideo);
         }
+        if (musicAudio) musicAudio.pause();
+        if (audioCtx) audioCtx.close();
+        cancelAnimationFrame(animationFrameId);
+        setIsProcessing(false);
         
-        // Restore previews
+        // Resume UI Previews
         if (videoRef.current) videoRef.current.play().catch(() => {});
         if (useMusic && audioRef.current) audioRef.current.play().catch(() => {});
       };
 
-      recorder.onstop = finalize;
+      recorder.onstop = () => {
+        const finalBlob = new Blob(chunks, { type: selectedMime });
+        const url = URL.createObjectURL(finalBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.${isMp4 ? 'mp4' : 'webm'}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        cleanup();
+      };
 
-      // Seek to start position
+      // Set start time and wait for seek
       processorVideo.currentTime = startSec;
-      await new Promise((resolve) => {
-        if (!processorVideo) return resolve(null);
-        processorVideo.onseeked = resolve;
+      await new Promise(r => {
+        processorVideo!.onseeked = r;
+        setTimeout(r, 2000); // Safety timeout
       });
 
-      // Prepare Audio Context
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
-      
-      // Start playback and recording
+      // Buffer time for stability
+      await new Promise(r => setTimeout(r, 500));
+
+      // Start
+      recorder.start();
       if (musicAudio) await musicAudio.play();
       await processorVideo.play();
-      recorder.start();
 
       const renderLoop = () => {
-        if (!processorVideo || !ctx || !recorder) return;
+        if (!processorVideo || !ctx) return;
 
-        // Break condition: time reached or video ended
-        if (processorVideo.currentTime >= endSec || processorVideo.ended) {
-          if (recorder.state === 'recording') recorder.stop();
-          processorVideo.pause();
-          cancelAnimationFrame(animationFrameId);
+        // Stuck Detection Heartbeat
+        if (processorVideo.currentTime === lastTime && !processorVideo.paused) {
+          stuckCounter++;
+        } else {
+          stuckCounter = 0;
+          lastTime = processorVideo.currentTime;
+        }
+
+        if (stuckCounter > 120) { // Approx 2 seconds of frozen playback
+          console.error("Recording stuck detected.");
+          cleanup();
+          alert("Recording stalled. This happens with very large files. Try refreshing.");
           return;
         }
 
-        // Draw frame if video is ready
-        if (processorVideo.readyState >= 2) {
-          ctx.drawImage(processorVideo, 0, 0, canvas.width, canvas.height);
+        // Completion check
+        if (processorVideo.currentTime >= endSec || processorVideo.ended) {
+          recorder.stop();
+          return;
         }
+
+        // Frame Rendering
+        ctx.drawImage(processorVideo, 0, 0, canvas.width, canvas.height);
         
-        // Update Progress UI
-        const elapsed = processorVideo.currentTime - startSec;
-        const p = Math.max(0, Math.min(Math.round((elapsed / duration) * 100), 100));
+        // Progress Calc
+        const p = Math.max(0, Math.min(Math.round(((processorVideo.currentTime - startSec) / duration) * 100), 100));
         setProgress(p);
 
         animationFrameId = requestAnimationFrame(renderLoop);
@@ -217,14 +236,10 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       renderLoop();
 
     } catch (err) {
-      console.error("Extraction Failed:", err);
+      console.error("Download Error:", err);
       setIsProcessing(false);
-      if (animationFrameId!) cancelAnimationFrame(animationFrameId);
-      if (audioCtx) audioCtx.close();
-      if (processorVideo && processorVideo.parentElement) {
-        document.body.removeChild(processorVideo);
-      }
-      alert("Failed to render video with audio. Please ensure you are using a modern browser like Chrome or Edge and the video file has a valid audio track.");
+      if (processorVideo && processorVideo.parentElement) document.body.removeChild(processorVideo);
+      alert("Failed to render video. Check if the video has an audio track and your browser supports Media Recording.");
     }
   };
 
@@ -331,12 +346,12 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
               {isProcessing ? (
                 <>
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                  Rendering Audio... {progress}%
+                  Extracting MP4... {progress}%
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  Download Viral Clip
+                  Download Viral MP4
                 </>
               )}
             </span>
