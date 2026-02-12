@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Clip, MusicTrack } from '../types.ts';
 
@@ -30,13 +29,11 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
   const endSec = getSeconds(clip.end);
   const duration = endSec - startSec;
 
-  // Preview Looping Logic for the UI player
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoSrc) return;
 
     const handleTimeUpdate = () => {
-      // Ensure it stays within bounds during preview
       if (video.currentTime >= endSec || video.currentTime < startSec) {
         video.currentTime = startSec;
       }
@@ -46,7 +43,6 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
   }, [startSec, endSec, videoSrc]);
 
-  // Sync music with the preview player
   useEffect(() => {
     if (useMusic && selectedMusic && audioRef.current) {
       audioRef.current.volume = 0.4;
@@ -63,20 +59,17 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     setIsProcessing(true);
     setProgress(0);
 
-    // Stop preview music if it's playing to avoid overlapping sounds
     if (audioRef.current) {
       audioRef.current.pause();
     }
 
     try {
-      // 1. Create Processor Elements
       const processorVideo = document.createElement('video');
       processorVideo.src = videoSrc;
       processorVideo.muted = false; 
       processorVideo.crossOrigin = "anonymous";
       processorVideo.playsInline = true;
       
-      // Load metadata to get dimensions
       await new Promise((resolve) => {
         processorVideo.onloadedmetadata = resolve;
       });
@@ -87,14 +80,11 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) throw new Error("Canvas context failed");
 
-      // 2. Setup Audio Routing - SILENT EXTRACTION
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const dest = audioCtx.createMediaStreamDestination();
       
-      // Video audio routing
       const videoSourceNode = audioCtx.createMediaElementSource(processorVideo);
       videoSourceNode.connect(dest);
-      // NOTE: We do NOT connect to audioCtx.destination here to keep it silent during processing
 
       let musicAudio: HTMLAudioElement | null = null;
       if (useMusic && selectedMusic) {
@@ -106,20 +96,25 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         musicGain.gain.value = 0.5; 
         musicSourceNode.connect(musicGain);
         musicGain.connect(dest);
-        // NOTE: Again, we do NOT connect musicGain to audioCtx.destination
       }
 
-      // 3. Prepare Recording Stream
       const canvasStream = canvas.captureStream(30); 
       const combinedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...dest.stream.getAudioTracks()
       ]);
 
-      // Detect best codec
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=h264') 
-        ? 'video/webm;codecs=h264' 
-        : 'video/webm;codecs=vp9,opus';
+      // Prioritize MP4 format
+      let mimeType = 'video/mp4';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/mp4;codecs=h264';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm;codecs=h264';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'video/webm';
+      }
 
       const recorder = new MediaRecorder(combinedStream, { mimeType });
       const chunks: Blob[] = [];
@@ -128,41 +123,38 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       };
 
       recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const isMp4 = mimeType.includes('mp4');
+        const blob = new Blob(chunks, { type: isMp4 ? 'video/mp4' : 'video/webm' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `clip-${clip.start.replace(/:/g, '-')}-to-${clip.end.replace(/:/g, '-')}.webm`;
+        const extension = isMp4 ? 'mp4' : 'webm';
+        a.download = `clip-${clip.start.replace(/:/g, '-')}-to-${clip.end.replace(/:/g, '-')}.${extension}`;
         a.click();
         URL.revokeObjectURL(url);
         setIsProcessing(false);
         if (musicAudio) musicAudio.pause();
         audioCtx.close();
         
-        // Resume preview music if it was enabled
         if (useMusic && audioRef.current) audioRef.current.play().catch(() => {});
       };
 
-      // 4. THE CRITICAL PART: Gated Seek & Start
       processorVideo.currentTime = startSec;
       
       await new Promise((resolve) => {
         processorVideo.onseeked = resolve;
       });
 
-      // Give browser a tiny moment to settle frames
       await new Promise(r => setTimeout(r, 150));
 
       await audioCtx.resume();
       recorder.start();
       if (musicAudio) {
-        // Start music at the exact same moment
         musicAudio.play();
       }
       processorVideo.play();
 
       const renderFrame = () => {
-        // Strict boundary check
         if (processorVideo.currentTime >= endSec || processorVideo.ended) {
           if (recorder.state === 'recording') {
             recorder.stop();
@@ -171,10 +163,8 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
           return;
         }
 
-        // Draw current video frame to canvas for the recorder
         ctx.drawImage(processorVideo, 0, 0, canvas.width, canvas.height);
         
-        // Update Progress
         const elapsed = processorVideo.currentTime - startSec;
         const p = Math.max(0, Math.min(Math.round((elapsed / duration) * 100), 100));
         setProgress(p);
