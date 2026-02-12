@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Clip, MusicTrack } from '../types.ts';
 import * as mp4Muxer from 'mp4-muxer';
@@ -54,8 +55,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
     let audioCtx: AudioContext | null = null;
 
     try {
-      // 1. Prepare Audio Data
-      // Fetch the video file and decode its audio to a buffer for precise clipping
+      // 1. Fetch and Decode Audio
       const response = await fetch(videoSrc);
       const arrayBuffer = await response.arrayBuffer();
       
@@ -64,9 +64,9 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
       
       // 2. Setup Video Processor
       processorVideo = document.createElement('video');
+      processorVideo.crossOrigin = "anonymous";
       processorVideo.src = videoSrc;
       processorVideo.muted = true;
-      processorVideo.crossOrigin = "anonymous";
       
       await new Promise((resolve, reject) => {
         processorVideo!.onloadedmetadata = resolve;
@@ -113,10 +113,10 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
       canvas.height = height;
       const ctx = canvas.getContext('2d', { alpha: false });
 
-      // 4. Encode Audio (Precise Slice)
+      // 4. Encode Audio Frames
       const sampleRate = 44100;
       const startFrame = Math.floor(startSec * sampleRate);
-      const endFrame = Math.floor(endSec * sampleRate);
+      const endFrame = Math.min(Math.floor(endSec * sampleRate), fullAudioBuffer.length);
       const totalAudioFrames = endFrame - startFrame;
       
       const audioChunkSize = 2048;
@@ -126,11 +126,14 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
         // Prepare planar data: Channel 0 data followed by Channel 1 data for 'f32-planar'
         const combinedData = new Float32Array(size * 2);
         const ch0 = fullAudioBuffer.getChannelData(0);
-        // Fallback to mono if needed
         const ch1 = fullAudioBuffer.numberOfChannels > 1 ? fullAudioBuffer.getChannelData(1) : ch0;
         
-        combinedData.set(ch0.subarray(startFrame + i, startFrame + i + size), 0);
-        combinedData.set(ch1.subarray(startFrame + i, startFrame + i + size), size);
+        // Safe subarray slicing with bounds check
+        const slice0 = ch0.subarray(startFrame + i, startFrame + i + size);
+        const slice1 = ch1.subarray(startFrame + i, startFrame + i + size);
+        
+        combinedData.set(slice0, 0);
+        combinedData.set(slice1, size);
 
         const audioData = new (window as any).AudioData({
           format: 'f32-planar',
@@ -147,7 +150,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
 
       // 5. Encode Video Frames
       let currentTime = startSec;
-      const frameStep = 1 / 30; // Aim for 30fps output
+      const frameStep = 1 / 30;
       let frameCount = 0;
 
       while (currentTime < endSec) {
@@ -164,7 +167,6 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
         const timestamp = (currentTime - startSec) * 1_000_000;
         const frame = new (window as any).VideoFrame(canvas, { timestamp });
         
-        // Force keyframes periodically to ensure smooth playback
         videoEncoder.encode(frame, { keyFrame: frameCount % 60 === 0 });
         frame.close();
         
@@ -172,11 +174,11 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
         currentTime += frameStep;
         setProgress(Math.min(99, Math.round(((currentTime - startSec) / duration) * 100)));
         
-        // Yield to prevent UI freeze and keep memory usage in check
+        // Yield to prevent UI locking
         if (frameCount % 15 === 0) await new Promise(r => setTimeout(r, 0));
       }
 
-      // 6. Finalize
+      // 6. Finalize Muxing
       await videoEncoder.flush();
       await audioEncoder.flush();
       muxer.finalize();
