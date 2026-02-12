@@ -3,38 +3,35 @@
 
 A powerful, standalone AI engine that converts long-form videos into high-retention viral shorts using Google's Gemini 3.0 Flash.
 
-## 🚀 How to Host on Netlify (Fixing the API Error)
+## 💰 Zero Cost Guarantee
+This project is architected to cost $0.00 to run:
+- **AI Engine**: Uses the **Gemini 3.0 Flash Free Tier** (15 Requests Per Minute / 1M Tokens Per Minute).
+- **Hosting**: Designed for **Netlify/Vercel Free Tiers**.
+- **Processing**: All video clipping happens **locally in your browser** (No server costs).
+- **Assets**: Background music is sourced from **Pixabay's royalty-free catalog**.
 
-If you are getting the "API Key must be set" error, follow these exact steps:
+## 🚀 How to Host on Netlify
+To ensure the API key is handled securely for free:
 
 1.  **Set Environment Variables**: 
     - Go to **Site Settings** > **Environment Variables**.
-    - Add `API_KEY` and paste your Gemini key.
+    - Add `API_KEY` and paste your Gemini key from [Google AI Studio](https://aistudio.google.com/).
 2.  **Configure Build Settings**:
     - **Build Command**: `npm run build`
     - **Publish Directory**: `dist`
-3.  **Redeploy**: Trigger a new deploy. The `vite.config.ts` will now inject your key during the build process.
+3.  **Redeploy**: Trigger a new deploy.
 
-## 📦 GitHub Troubleshooting (If push fails)
-
-If `git push` asks for a password and fails:
-1.  **Create a Token**: Go to GitHub **Settings** > **Developer Settings** > **Personal Access Tokens** > **Tokens (classic)**.
-2.  **Permissions**: Select `repo`.
-3.  **Use Token**: When the terminal asks for your password, paste this token instead.
+## 📦 GitHub Troubleshooting
+If `git push` fails:
+1.  Go to GitHub **Settings** > **Developer Settings** > **Personal Access Tokens**.
+2.  Generate a token with `repo` access.
+3.  Use this token instead of your password when pushing.
 
 ## 🛠 Local Development
-
 ```bash
 npm install
 npm run dev
 ```
 
-## ✨ Features
-
-- **AI Viral Analysis**: Automatically detects high-energy segments.
-- **Local Extraction**: Processes video clipping directly in your browser.
-- **Audio Merging**: Overlay viral background tracks.
-- **Vite Powered**: Secure environment variable handling.
-
-## 📜 Credits
+## 📜 License
 Built as a community-first replica. No subscriptions, just code.

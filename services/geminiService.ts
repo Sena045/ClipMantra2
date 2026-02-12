@@ -4,17 +4,19 @@ import { Clip, LanguagePreference } from "../types.ts";
 
 /**
  * Uses Gemini to analyze video data and suggest viral clips.
+ * Using gemini-3-flash-preview for the best balance of speed and zero-cost limits.
  */
 export const generateViralShorts = async (
   context: string, 
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
+  // process.env.API_KEY is replaced by Vite during build
   const apiKey = process.env.API_KEY;
 
-  if (!apiKey || apiKey === "undefined") {
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
     throw new Error(
-      "API_KEY is missing. Please go to your Hosting Dashboard (Netlify/Vercel) -> Site Settings -> Environment Variables and add 'API_KEY' with your Google AI Studio key."
+      "API Key Missing: Please set the 'API_KEY' environment variable in your Netlify/Vercel dashboard."
     );
   }
 
@@ -29,7 +31,7 @@ export const generateViralShorts = async (
     3. hook: A punchy headline for the clip.
     4. caption: Engaging social media caption with hashtags.
     5. score: 0-100 virality probability.
-    6. reasoning: Briefly why this specific part is viral (e.g., "emotional peak", "key advice", "visual transition").
+    6. reasoning: Briefly why this specific part is viral.
   - Output ONLY valid JSON array of objects.
   - Language: ${language}.`;
 
@@ -44,7 +46,6 @@ export const generateViralShorts = async (
         },
       });
     });
-    parts.push({ text: "The images above are sequential frames. Use them to verify visual engagement peaks." });
   }
 
   try {
@@ -73,8 +74,12 @@ export const generateViralShorts = async (
     });
 
     return JSON.parse(response.text || "[]");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Generation Error:", error);
+    // Handle the specific "Key not found" error that some environments throw
+    if (error?.message?.includes('API_KEY')) {
+       throw new Error("Configuration Error: The API Key set in Netlify is not being passed correctly to the build. Check your vite.config.ts mapping.");
+    }
     throw new Error(error instanceof Error ? error.message : "Failed to process content. Ensure your API Key is valid.");
   }
 };

@@ -27,6 +27,9 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicInputRef = useRef<HTMLInputElement>(null);
 
+  // Check if API key is configured
+  const isKeyConfigured = process.env.API_KEY && process.env.API_KEY !== "" && process.env.API_KEY !== "undefined";
+
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
     else document.documentElement.classList.remove('dark');
@@ -88,93 +91,124 @@ const App: React.FC = () => {
             AI Viral Highlight Engine
           </p>
 
-          <div className="max-w-3xl mx-auto pt-10">
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full bg-white dark:bg-slate-900 rounded-[3rem] p-12 border-4 border-dashed border-slate-100 dark:border-slate-800 hover:border-blue-500 cursor-pointer shadow-2xl transition-all group flex flex-col items-center gap-6"
-            >
-              <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-3xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          {!isKeyConfigured ? (
+            <div className="max-w-xl mx-auto mt-12 p-10 bg-white dark:bg-slate-900 rounded-[3rem] border border-blue-100 dark:border-blue-900/30 shadow-2xl text-left space-y-6">
+              <div className="flex items-center gap-4 text-blue-600">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <h3 className="font-black uppercase tracking-tight text-xl">API Key Required</h3>
               </div>
-              <div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">
-                  {videoFile ? videoFile.name : "Upload Video File"}
-                </h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
-                  Drag & drop or click to select MP4 video
-                </p>
-              </div>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/mp4" className="hidden" />
-            </div>
-            
-            <div className="mt-8">
-               <button 
-                  onClick={handleGenerate}
-                  disabled={isLoading || !videoFile}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-8 rounded-full font-black uppercase tracking-[0.3em] text-sm transition-all active:scale-95 disabled:opacity-20 shadow-2xl shadow-blue-600/20"
-                >
-                  {isLoading ? "Analyzing..." : "Analyze for Viral Clips"}
-                </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mb-20 animate-in fade-in slide-in-from-top-4 duration-700">
-           <div className="flex flex-col gap-4">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-6">Output Language</label>
-              <select 
-                className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest dark:text-white outline-none appearance-none cursor-pointer shadow-xl"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as LanguagePreference)}
-              >
-                {Object.values(LanguagePreference).map(lang => (
-                  <option key={lang} value={lang}>{lang} Hooks</option>
-                ))}
-              </select>
-           </div>
-
-           <div className="flex flex-col gap-4">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-6">Background Music</label>
-              <div className="flex gap-3">
-                <div className="flex-1 relative group">
-                  <select 
-                    className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest dark:text-white outline-none appearance-none cursor-pointer shadow-xl"
-                    onChange={(e) => {
-                      if (e.target.value === "custom-placeholder") return;
-                      const track = MUSIC_CATALOG.find(m => m.id === e.target.value);
-                      if (track) setSelectedMusic(track);
-                      else if (e.target.value === "") setSelectedMusic(null);
-                    }}
-                    value={selectedMusic?.category === 'Custom' ? 'custom-placeholder' : selectedMusic?.id || ""}
-                  >
-                    <option value="">No Background Music</option>
-                    {selectedMusic?.category === 'Custom' && (
-                      <option value="custom-placeholder">♪ {selectedMusic.name}</option>
-                    )}
-                    {MUSIC_CATALOG.map(track => (
-                      <option key={track.id} value={track.id}>{track.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                    <svg className="w-4 h-4 dark:text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-                  </div>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
+                To keep this app 100% free, you need to use your own Google AI Studio key.
+              </p>
+              <div className="space-y-3">
+                <div className="flex gap-4 items-start">
+                  <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</span>
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Get a free key from <a href="https://aistudio.google.com/" target="_blank" className="text-blue-600 underline">Google AI Studio</a></p>
                 </div>
-                
-                <button 
-                  onClick={() => musicInputRef.current?.click()}
-                  className={`px-6 rounded-[2.5rem] border transition-all shadow-xl group flex items-center justify-center ${
-                    selectedMusic?.category === 'Custom' 
-                      ? 'bg-blue-600 border-blue-500 text-white' 
-                      : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
-                  }`}
-                  title="Upload Custom Music"
-                >
-                  <svg className={`w-5 h-5 ${selectedMusic?.category === 'Custom' ? 'text-white' : 'text-slate-400 group-hover:text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-                  <input type="file" ref={musicInputRef} onChange={handleMusicUpload} accept="audio/*" className="hidden" />
-                </button>
+                <div className="flex gap-4 items-start">
+                  <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
+                  <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Add it to Netlify/Vercel as <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">API_KEY</code></p>
+                </div>
               </div>
-           </div>
+              <a 
+                href="https://aistudio.google.com/" 
+                target="_blank"
+                className="block w-full text-center bg-blue-600 py-5 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-colors"
+              >
+                Get My Free Key Now
+              </a>
+            </div>
+          ) : (
+            <div className="max-w-3xl mx-auto pt-10">
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-white dark:bg-slate-900 rounded-[3rem] p-12 border-4 border-dashed border-slate-100 dark:border-slate-800 hover:border-blue-500 cursor-pointer shadow-2xl transition-all group flex flex-col items-center gap-6"
+              >
+                <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-3xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">
+                    {videoFile ? videoFile.name : "Upload Video File"}
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">
+                    Drag & drop or click to select MP4 video
+                  </p>
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/mp4" className="hidden" />
+              </div>
+              
+              <div className="mt-8">
+                 <button 
+                    onClick={handleGenerate}
+                    disabled={isLoading || !videoFile}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-8 rounded-full font-black uppercase tracking-[0.3em] text-sm transition-all active:scale-95 disabled:opacity-20 shadow-2xl shadow-blue-600/20"
+                  >
+                    {isLoading ? "Analyzing..." : "Analyze for Viral Clips"}
+                  </button>
+              </div>
+            </div>
+          )}
         </section>
+
+        {isKeyConfigured && (
+          <section className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 mb-20 animate-in fade-in slide-in-from-top-4 duration-700">
+             <div className="flex flex-col gap-4">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-6">Output Language</label>
+                <select 
+                  className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest dark:text-white outline-none appearance-none cursor-pointer shadow-xl"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as LanguagePreference)}
+                >
+                  {Object.values(LanguagePreference).map(lang => (
+                    <option key={lang} value={lang}>{lang} Hooks</option>
+                  ))}
+                </select>
+             </div>
+
+             <div className="flex flex-col gap-4">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 px-6">Background Music</label>
+                <div className="flex gap-3">
+                  <div className="flex-1 relative group">
+                    <select 
+                      className="w-full bg-white dark:bg-slate-900 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 font-black text-[10px] uppercase tracking-widest dark:text-white outline-none appearance-none cursor-pointer shadow-xl"
+                      onChange={(e) => {
+                        if (e.target.value === "custom-placeholder") return;
+                        const track = MUSIC_CATALOG.find(m => m.id === e.target.value);
+                        if (track) setSelectedMusic(track);
+                        else if (e.target.value === "") setSelectedMusic(null);
+                      }}
+                      value={selectedMusic?.category === 'Custom' ? 'custom-placeholder' : selectedMusic?.id || ""}
+                    >
+                      <option value="">No Background Music</option>
+                      {selectedMusic?.category === 'Custom' && (
+                        <option value="custom-placeholder">♪ {selectedMusic.name}</option>
+                      )}
+                      {MUSIC_CATALOG.map(track => (
+                        <option key={track.id} value={track.id}>{track.name}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+                      <svg className="w-4 h-4 dark:text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => musicInputRef.current?.click()}
+                    className={`px-6 rounded-[2.5rem] border transition-all shadow-xl group flex items-center justify-center ${
+                      selectedMusic?.category === 'Custom' 
+                        ? 'bg-blue-600 border-blue-500 text-white' 
+                        : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800'
+                    }`}
+                    title="Upload Custom Music"
+                  >
+                    <svg className={`w-5 h-5 ${selectedMusic?.category === 'Custom' ? 'text-white' : 'text-slate-400 group-hover:text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                    <input type="file" ref={musicInputRef} onChange={handleMusicUpload} accept="audio/*" className="hidden" />
+                  </button>
+                </div>
+             </div>
+          </section>
+        )}
 
         {isLoading && (
           <div className="py-20 text-center space-y-8">

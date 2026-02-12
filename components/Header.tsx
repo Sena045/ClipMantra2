@@ -16,7 +16,7 @@ const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
               <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             </div>
             <span className="text-sm font-black tracking-widest dark:text-white uppercase">
-              Clip <span className="text-blue-600">Pro</span>
+              Clip <span className="text-blue-600">Free</span>
             </span>
           </div>
           
