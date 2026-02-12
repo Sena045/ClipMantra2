@@ -14,7 +14,6 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [useMusic, setUseMusic] = useState(false);
-  // Defaulting isMuted to true so sound is off in the preview by default
   const [isMuted, setIsMuted] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -61,9 +60,13 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     setIsProcessing(true);
     setProgress(0);
 
-    // Stop preview audio
+    // Stop current previews
     if (audioRef.current) audioRef.current.pause();
     if (videoRef.current) videoRef.current.pause();
+
+    let animationFrameId: number;
+    let musicAudio: HTMLAudioElement | null = null;
+    let audioCtx: AudioContext | null = null;
 
     try {
       const processorVideo = document.createElement('video');
@@ -73,8 +76,9 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       processorVideo.playsInline = true;
       processorVideo.volume = 1.0;
       
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         processorVideo.onloadedmetadata = resolve;
+        processorVideo.onerror = () => reject(new Error("Video failed to load for processing"));
       });
 
       const canvas = document.createElement('canvas');
@@ -83,44 +87,47 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) throw new Error("Canvas context failed");
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const dest = audioCtx.createMediaStreamDestination();
       
-      // Video Audio Node
+      // Video Audio Routing
       const videoSourceNode = audioCtx.createMediaElementSource(processorVideo);
       const videoGain = audioCtx.createGain();
       videoGain.gain.value = 1.0;
       videoSourceNode.connect(videoGain);
       videoGain.connect(dest);
+      // Optional: Connect to destination so you can hear it while recording if debugging
+      // videoGain.connect(audioCtx.destination); 
 
-      // Music Audio Node (Optional)
-      let musicAudio: HTMLAudioElement | null = null;
+      // Background Music Routing
       if (useMusic && selectedMusic) {
         musicAudio = new Audio(selectedMusic.url);
         musicAudio.crossOrigin = "anonymous";
         musicAudio.loop = true;
         const musicSourceNode = audioCtx.createMediaElementSource(musicAudio);
         const musicGain = audioCtx.createGain();
-        musicGain.gain.value = 0.35; // Slightly lower background music
+        musicGain.gain.value = 0.35; 
         musicSourceNode.connect(musicGain);
         musicGain.connect(dest);
       }
 
+      // Stream Construction
       const canvasStream = canvas.captureStream(30); 
       const combinedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...dest.stream.getAudioTracks()
       ]);
 
-      // MimeType detection
+      // MimeType Priority: MP4 -> WebM
       let mimeType = 'video/mp4';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/mp4;codecs=h264';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp9,opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=h264';
       if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
 
       const recorder = new MediaRecorder(combinedStream, { 
         mimeType,
-        videoBitsPerSecond: 5000000 // 5Mbps for quality
+        videoBitsPerSecond: 8000000 // Higher bitrate for better quality
       });
       
       const chunks: Blob[] = [];
@@ -128,65 +135,75 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         if (e.data.size > 0) chunks.push(e.data);
       };
 
+      const stopProcessing = () => {
+        if (recorder.state === 'recording') recorder.stop();
+        processorVideo.pause();
+        cancelAnimationFrame(animationFrameId);
+      };
+
       recorder.onstop = () => {
         const isMp4 = mimeType.includes('mp4');
-        const blob = new Blob(chunks, { type: isMp4 ? 'video/mp4' : 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const extension = isMp4 ? 'mp4' : 'webm';
-        a.download = `clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const finalBlob = new Blob(chunks, { type: isMp4 ? 'video/mp4' : 'video/webm' });
+        const downloadUrl = URL.createObjectURL(finalBlob);
         
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        const extension = isMp4 ? 'mp4' : 'webm';
+        link.download = `viral-clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        URL.revokeObjectURL(downloadUrl);
         setIsProcessing(false);
         if (musicAudio) musicAudio.pause();
-        audioCtx.close();
+        if (audioCtx) audioCtx.close();
         
-        // Resume preview
+        // Restore previews
         if (videoRef.current) videoRef.current.play().catch(() => {});
         if (useMusic && audioRef.current) audioRef.current.play().catch(() => {});
       };
 
+      // Seek to start
       processorVideo.currentTime = startSec;
-      
       await new Promise((resolve) => {
         processorVideo.onseeked = resolve;
       });
 
-      // Wait for audio to be ready
+      // Prepare Audio
       await audioCtx.resume();
-      recorder.start();
       
-      if (musicAudio) {
-        await musicAudio.play();
-      }
+      // Start Recording
+      recorder.start();
+      if (musicAudio) await musicAudio.play();
       await processorVideo.play();
 
-      const renderFrame = () => {
+      const renderLoop = () => {
+        // Break condition: current time exceeds end point
         if (processorVideo.currentTime >= endSec || processorVideo.ended) {
-          if (recorder.state === 'recording') recorder.stop();
-          processorVideo.pause();
+          stopProcessing();
           return;
         }
 
+        // Draw current frame to canvas
         ctx.drawImage(processorVideo, 0, 0, canvas.width, canvas.height);
         
+        // Update Progress
         const elapsed = processorVideo.currentTime - startSec;
         const p = Math.max(0, Math.min(Math.round((elapsed / duration) * 100), 100));
         setProgress(p);
 
-        if (recorder.state === 'recording') {
-          requestAnimationFrame(renderFrame);
-        }
+        animationFrameId = requestAnimationFrame(renderLoop);
       };
 
-      renderFrame();
+      renderLoop();
 
     } catch (err) {
-      console.error("Clipping Error:", err);
+      console.error("Extraction Failed:", err);
       setIsProcessing(false);
-      alert("Sound extraction failed. Ensure your browser allows auto-playing audio.");
+      cancelAnimationFrame(animationFrameId!);
+      if (audioCtx) audioCtx.close();
+      alert("Clipping failed. This is often caused by browser security restrictions or high-resolution videos. Try again or check if hardware acceleration is enabled.");
     }
   };
 
@@ -293,12 +310,12 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
               {isProcessing ? (
                 <>
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                  Extracting Sound... {progress}%
+                  Rendering... {progress}%
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  Download Viral Clip
+                  Download MP4 Clip
                 </>
               )}
             </span>
