@@ -1,41 +1,46 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 import { Clip, LanguagePreference } from "../types.ts";
 
 /**
  * Uses Gemini to analyze video data and suggest viral clips.
- * Using gemini-3-flash-preview for the best balance of speed and zero-cost limits.
+ * Using gemini-3-pro-preview for the best balance of reasoning depth and multimodal understanding.
  */
 export const generateViralShorts = async (
   context: string, 
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
-  // process.env.API_KEY is replaced by Vite during build
-  const apiKey = process.env.API_KEY;
-
-  if (!apiKey || apiKey === "undefined" || apiKey === "") {
-    throw new Error(
-      "API Key Missing: Please set the 'API_KEY' environment variable in your Netlify/Vercel dashboard."
-    );
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Initialize the Gemini API client directly with the environment variable as per guidelines.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const systemInstruction = `You are the ClipMantra AI Specialist. Your goal is to find viral segments.
-  - I will provide you with YouTube metadata (title, tags, description) and visual frames.
-  - Identify 10-15 segments with high "Retention Potential".
-  - For each segment, provide:
-    1. start: (MM:SS)
-    2. end: (MM:SS)
-    3. hook: A punchy headline for the clip.
-    4. caption: Engaging social media caption with hashtags.
-    5. score: 0-100 virality probability.
-    6. reasoning: Briefly why this specific part is viral.
-  - Output ONLY valid JSON array of objects.
-  - Language: ${language}.`;
+  const systemInstruction = `You are a World-Class Short-Form Content Strategist specializing in YouTube Shorts, TikTok, and Instagram Reels. 
+  Your goal is to extract the most psychologically compelling segments from a video.
 
-  const parts: any[] = [{ text: `YouTube Metadata & Transcript Info: ${context}` }];
+  - Language Output: ${language}.
+  - Target Audience: High-engagement viewers who value high-density information or high-emotion storytelling.
+
+  CRITICAL GUIDELINES FOR WORDING:
+  1. hook (Headline): 
+     - Use "Pattern Interrupts". 
+     - Create a "Curiosity Gap" (e.g., "The exact moment everything changed..." or "Why 99% of creators fail at this...").
+     - Keep it under 10 words. Bold, punchy, and aggressive.
+     - NO generic titles like "Tips for success".
+  
+  2. caption (Social Post):
+     - Start with a "scroll-stopper" first line.
+     - Use a "Problem-Agitate-Solution" (PAS) or "Curiosity Loop" structure.
+     - Include 3-5 high-traffic, niche-relevant hashtags.
+     - Use emojis sparingly but effectively to emphasize points.
+  
+  3. reasoning (Strategy):
+     - Explain the "Retention Trigger" (e.g., "High-stakes revelation," "Conflict resolution," or "Unexpected visual change").
+     - Why would someone watch this 3 times?
+
+  - Identify 5-10 elite segments.
+  - Output ONLY a valid JSON array of objects.`;
+
+  const parts: any[] = [{ text: `YouTube Metadata & Visual Context: ${context}` }];
   
   if (frames && frames.length > 0) {
     frames.forEach((base64) => {
@@ -49,8 +54,9 @@ export const generateViralShorts = async (
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    // Calling generateContent with gemini-3-pro-preview for high-quality reasoning and multimodal analysis.
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
       contents: { parts },
       config: {
         systemInstruction,
@@ -60,12 +66,12 @@ export const generateViralShorts = async (
           items: {
             type: Type.OBJECT,
             properties: {
-              start: { type: Type.STRING },
-              end: { type: Type.STRING },
-              hook: { type: Type.STRING },
-              caption: { type: Type.STRING },
-              score: { type: Type.NUMBER },
-              reasoning: { type: Type.STRING }
+              start: { type: Type.STRING, description: "MM:SS format" },
+              end: { type: Type.STRING, description: "MM:SS format" },
+              hook: { type: Type.STRING, description: "Ultra-punchy viral headline" },
+              caption: { type: Type.STRING, description: "Engaging social post with retention hooks" },
+              score: { type: Type.NUMBER, description: "0-100 virality probability" },
+              reasoning: { type: Type.STRING, description: "Strategic explanation of retention" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning"]
           }
@@ -73,13 +79,10 @@ export const generateViralShorts = async (
       }
     });
 
+    // Extracting text as a property from GenerateContentResponse as per guidelines.
     return JSON.parse(response.text || "[]");
   } catch (error: any) {
     console.error("Gemini Generation Error:", error);
-    // Handle the specific "Key not found" error that some environments throw
-    if (error?.message?.includes('API_KEY')) {
-       throw new Error("Configuration Error: The API Key set in Netlify is not being passed correctly to the build. Check your vite.config.ts mapping.");
-    }
-    throw new Error(error instanceof Error ? error.message : "Failed to process content. Ensure your API Key is valid.");
+    throw new Error(error instanceof Error ? error.message : "Failed to process content.");
   }
 };

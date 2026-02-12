@@ -1,23 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Clip, MusicTrack } from '../types.ts';
+import * as mp4Muxer from 'mp4-muxer';
 
 interface ClipCardProps {
   clip: Clip;
   videoSrc: string | null;
-  youtubeId: null;
-  index: number;
   selectedMusic: MusicTrack | null;
 }
 
-const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusic }) => {
+const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc }) => {
   const [copied, setCopied] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [useMusic, setUseMusic] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const getSeconds = (timeStr: string) => {
     const parts = timeStr.trim().split(':').map(Number);
@@ -28,319 +25,264 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
 
   const startSec = getSeconds(clip.start);
   const endSec = getSeconds(clip.end);
-  const duration = endSec - startSec;
+  const duration = Math.max(0.1, endSec - startSec);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoSrc) return;
-
     const handleTimeUpdate = () => {
       if (video.currentTime >= endSec || video.currentTime < startSec) {
         video.currentTime = startSec;
       }
     };
-
     video.addEventListener('timeupdate', handleTimeUpdate);
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
   }, [startSec, endSec, videoSrc]);
 
-  useEffect(() => {
-    if (useMusic && selectedMusic && audioRef.current) {
-      audioRef.current.volume = 0.4;
-      audioRef.current.play().catch(() => {});
-    } else if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-  }, [useMusic, selectedMusic]);
-
   const handleDownload = async () => {
     if (!videoSrc || isProcessing) return;
+    
+    if (!(window as any).VideoEncoder || !(window as any).AudioEncoder) {
+      alert("Your browser does not support WebCodecs. Please use a modern version of Chrome or Edge.");
+      return;
+    }
 
     setIsProcessing(true);
     setProgress(0);
 
-    // Stop UI previews
-    if (audioRef.current) audioRef.current.pause();
-    if (videoRef.current) videoRef.current.pause();
-
-    let animationFrameId: number;
-    let musicAudio: HTMLAudioElement | null = null;
-    let audioCtx: AudioContext | null = null;
     let processorVideo: HTMLVideoElement | null = null;
+    let audioCtx: AudioContext | null = null;
 
     try {
-      // 1. Setup processing video
+      // 1. Prepare Audio Data
+      // Fetch the video file and decode its audio to a buffer for precise clipping
+      const response = await fetch(videoSrc);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      audioCtx = new AudioContext({ sampleRate: 44100 });
+      const fullAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      // 2. Setup Video Processor
       processorVideo = document.createElement('video');
-      Object.assign(processorVideo.style, {
-        position: 'fixed',
-        left: '-1px',
-        top: '-1px',
-        width: '1px',
-        height: '1px',
-        opacity: '0.01',
-        pointerEvents: 'none'
-      });
-      processorVideo.muted = false; // Audio must be enabled for recording
-      processorVideo.crossOrigin = "anonymous";
-      processorVideo.playsInline = true;
       processorVideo.src = videoSrc;
-      document.body.appendChild(processorVideo);
+      processorVideo.muted = true;
+      processorVideo.crossOrigin = "anonymous";
       
-      await new Promise((resolve) => {
-        if (!processorVideo) return resolve(null);
-        processorVideo.oncanplaythrough = () => resolve(null);
-        setTimeout(resolve, 5000); 
+      await new Promise((resolve, reject) => {
+        processorVideo!.onloadedmetadata = resolve;
+        processorVideo!.onerror = () => reject(new Error("Failed to load video metadata"));
       });
 
-      // 2. Setup Canvas & Audio Pipeline
+      const width = (processorVideo.videoWidth || 720) & ~1;
+      const height = (processorVideo.videoHeight || 1280) & ~1;
+
+      // 3. Setup Muxer and Encoders
+      const muxer = new mp4Muxer.Muxer({
+        target: new mp4Muxer.ArrayBufferTarget(),
+        video: { codec: 'avc', width, height },
+        audio: { codec: 'aac', numberOfChannels: 2, sampleRate: 44100 },
+        fastStart: 'in-memory'
+      });
+
+      const videoEncoder = new (window as any).VideoEncoder({
+        output: (chunk: any, metadata: any) => muxer.addVideoChunk(chunk, metadata),
+        error: (e: any) => console.error("Video Encoder Error:", e)
+      });
+      videoEncoder.configure({ 
+        codec: 'avc1.42E01E', 
+        width, 
+        height, 
+        bitrate: 4_000_000, 
+        framerate: 30,
+        latencyMode: 'quality' 
+      });
+
+      const audioEncoder = new (window as any).AudioEncoder({
+        output: (chunk: any, metadata: any) => muxer.addAudioChunk(chunk, metadata),
+        error: (e: any) => console.error("Audio Encoder Error:", e)
+      });
+      audioEncoder.configure({ 
+        codec: 'mp4a.40.2', 
+        numberOfChannels: 2, 
+        sampleRate: 44100, 
+        bitrate: 128_000 
+      });
+
       const canvas = document.createElement('canvas');
-      canvas.width = processorVideo.videoWidth;
-      canvas.height = processorVideo.videoHeight;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d', { alpha: false });
-      if (!ctx) throw new Error("Canvas context failed.");
 
-      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const dest = audioCtx.createMediaStreamDestination();
+      // 4. Encode Audio (Precise Slice)
+      const sampleRate = 44100;
+      const startFrame = Math.floor(startSec * sampleRate);
+      const endFrame = Math.floor(endSec * sampleRate);
+      const totalAudioFrames = endFrame - startFrame;
       
-      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      const audioChunkSize = 2048;
+      for (let i = 0; i < totalAudioFrames; i += audioChunkSize) {
+        const size = Math.min(audioChunkSize, totalAudioFrames - i);
+        
+        // Prepare planar data: Channel 0 data followed by Channel 1 data for 'f32-planar'
+        const combinedData = new Float32Array(size * 2);
+        const ch0 = fullAudioBuffer.getChannelData(0);
+        // Fallback to mono if needed
+        const ch1 = fullAudioBuffer.numberOfChannels > 1 ? fullAudioBuffer.getChannelData(1) : ch0;
+        
+        combinedData.set(ch0.subarray(startFrame + i, startFrame + i + size), 0);
+        combinedData.set(ch1.subarray(startFrame + i, startFrame + i + size), size);
 
-      // Connect Video Sound to Destination
-      const videoSourceNode = audioCtx.createMediaElementSource(processorVideo);
-      const videoGain = audioCtx.createGain();
-      videoGain.gain.value = 1.0;
-      videoSourceNode.connect(videoGain);
-      videoGain.connect(dest);
-      
-      // Connect Background Music if applicable
-      if (useMusic && selectedMusic) {
-        musicAudio = new Audio(selectedMusic.url);
-        musicAudio.crossOrigin = "anonymous";
-        musicAudio.loop = true;
-        const musicSourceNode = audioCtx.createMediaElementSource(musicAudio);
-        const musicGain = audioCtx.createGain();
-        musicGain.gain.value = 0.35; 
-        musicSourceNode.connect(musicGain);
-        musicGain.connect(dest);
+        const audioData = new (window as any).AudioData({
+          format: 'f32-planar',
+          sampleRate: 44100,
+          numberOfFrames: size,
+          numberOfChannels: 2,
+          timestamp: (i / sampleRate) * 1_000_000,
+          data: combinedData,
+        });
+        
+        audioEncoder.encode(audioData);
+        audioData.close();
       }
 
-      // 3. Prepare Media Stream and Recorder
-      const canvasStream = canvas.captureStream(30);
-      const combinedStream = new MediaStream();
-      
-      // Add video tracks
-      canvasStream.getVideoTracks().forEach(track => combinedStream.addTrack(track));
-      // Add audio tracks from our mixed destination
-      dest.stream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+      // 5. Encode Video Frames
+      let currentTime = startSec;
+      const frameStep = 1 / 30; // Aim for 30fps output
+      let frameCount = 0;
 
-      const mimes = [
-        'video/mp4;codecs=avc1,mp4a.40.2',
-        'video/mp4;codecs=h264,aac',
-        'video/mp4',
-        'video/webm;codecs=h264,opus'
-      ];
-      const mimeType = mimes.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
-      const isMp4 = mimeType.includes('mp4');
-
-      const recorder = new MediaRecorder(combinedStream, { 
-        mimeType,
-        videoBitsPerSecond: 6000000,
-        audioBitsPerSecond: 128000
-      });
-      
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      const finalize = () => {
-        const finalBlob = new Blob(chunks, { type: mimeType });
-        const url = URL.createObjectURL(finalBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `clip-${Date.now()}.${isMp4 ? 'mp4' : 'webm'}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        cleanup();
-      };
-
-      const cleanup = () => {
-        setIsProcessing(false);
-        if (processorVideo) {
-          processorVideo.pause();
-          if (processorVideo.parentElement) document.body.removeChild(processorVideo);
-        }
-        if (musicAudio) musicAudio.pause();
-        if (audioCtx) audioCtx.close();
-        cancelAnimationFrame(animationFrameId);
+      while (currentTime < endSec) {
+        processorVideo.currentTime = currentTime;
+        await new Promise(r => {
+          const onSeeked = () => {
+            processorVideo!.removeEventListener('seeked', onSeeked);
+            r(null);
+          };
+          processorVideo!.addEventListener('seeked', onSeeked);
+        });
         
-        // Resume UI Previews
-        if (videoRef.current) videoRef.current.play().catch(() => {});
-        if (useMusic && audioRef.current) audioRef.current.play().catch(() => {});
-      };
-
-      recorder.onstop = finalize;
-
-      // 4. Record Loop Logic
-      processorVideo.currentTime = startSec;
-      
-      // Crucial: Wait for the video to seek correctly before starting
-      await new Promise(r => {
-        processorVideo!.onseeked = r;
-        setTimeout(r, 1500); 
-      });
-
-      await processorVideo.play();
-      if (musicAudio) await musicAudio.play();
-      
-      // Start recording only after playback actually starts
-      recorder.start();
-
-      const renderLoop = () => {
-        if (!processorVideo || !ctx) return;
-
-        // Stop check
-        if (processorVideo.currentTime >= endSec || processorVideo.ended) {
-          if (recorder.state === 'recording') recorder.stop();
-          return;
-        }
-
-        // Render Frame
-        if (processorVideo.readyState >= 2) {
-          ctx.drawImage(processorVideo, 0, 0, canvas.width, canvas.height);
-        }
+        ctx?.drawImage(processorVideo, 0, 0, width, height);
+        const timestamp = (currentTime - startSec) * 1_000_000;
+        const frame = new (window as any).VideoFrame(canvas, { timestamp });
         
-        // Progress UI
-        const elapsed = Math.max(0, processorVideo.currentTime - startSec);
-        setProgress(Math.round((elapsed / duration) * 100));
+        // Force keyframes periodically to ensure smooth playback
+        videoEncoder.encode(frame, { keyFrame: frameCount % 60 === 0 });
+        frame.close();
+        
+        frameCount++;
+        currentTime += frameStep;
+        setProgress(Math.min(99, Math.round(((currentTime - startSec) / duration) * 100)));
+        
+        // Yield to prevent UI freeze and keep memory usage in check
+        if (frameCount % 15 === 0) await new Promise(r => setTimeout(r, 0));
+      }
 
-        animationFrameId = requestAnimationFrame(renderLoop);
-      };
+      // 6. Finalize
+      await videoEncoder.flush();
+      await audioEncoder.flush();
+      muxer.finalize();
 
-      renderLoop();
+      const buffer = (muxer.target as mp4Muxer.ArrayBufferTarget).buffer;
+      const blob = new Blob([buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.mp4`;
+      a.click();
+      URL.revokeObjectURL(url);
 
-    } catch (err) {
-      console.error("Extraction Failed:", err);
+    } catch (err: any) {
+      console.error("Export failed:", err);
+      alert("Export failed: " + err.message);
+    } finally {
       setIsProcessing(false);
-      if (processorVideo && processorVideo.parentElement) document.body.removeChild(processorVideo);
-      alert("Extraction failed. Please ensure your browser supports MP4 recording and you have a stable connection.");
+      if (audioCtx) await audioCtx.close();
+      if (processorVideo) processorVideo.remove();
     }
   };
 
   return (
-    <div className="group relative bg-white dark:bg-slate-900 rounded-[3.5rem] shadow-2xl border border-slate-100 dark:border-slate-800/50 hover:shadow-blue-500/10 transition-all duration-700 flex flex-col h-full overflow-hidden">
-      
+    <div className="group relative glass-card rounded-[3rem] overflow-hidden shadow-2xl transition-all duration-700 hover:scale-[1.03] hover:shadow-blue-500/20">
       <div className="aspect-[9/16] bg-slate-950 relative overflow-hidden">
-        {videoSrc ? (
-          <video
-            ref={videoRef}
-            src={`${videoSrc}#t=${startSec},${endSec}`}
-            className="w-full h-full object-cover"
-            muted={isMuted}
-            playsInline
-            autoPlay
-            loop
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-slate-900">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        )}
+        <video
+          ref={videoRef}
+          src={`${videoSrc}#t=${startSec},${endSec}`}
+          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700"
+          muted={isMuted}
+          playsInline
+          autoPlay
+          loop
+        />
         
-        <div className="absolute top-8 left-8 z-20 flex flex-col gap-3">
-          <div className="flex items-center gap-2 px-5 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-2xl backdrop-blur-xl bg-blue-600 text-white border border-blue-400/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-            {clip.score}% Viral Rank
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/20 pointer-events-none"></div>
+
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-start pointer-events-none">
+          <div className="bg-blue-600/90 backdrop-blur-xl px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 border border-white/20">
+            <span className="w-2 h-2 bg-white rounded-full animate-pulse shadow-[0_0_10px_#fff]"></span>
+            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] mono">{clip.score}% Viral Potential</span>
           </div>
-          <div className="px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-2xl backdrop-blur-md bg-black/60 text-white border border-white/10">
-            {clip.start} — {clip.end}
+          <div className="bg-black/80 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black text-slate-300 border border-white/10 mono tracking-widest">
+            {clip.start} - {clip.end}
           </div>
         </div>
 
-        <div className="absolute top-8 right-8 z-20 flex flex-col gap-3">
-          {selectedMusic && (
-            <button 
-              onClick={() => setUseMusic(!useMusic)}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-2xl border-2 ${
-                useMusic ? 'bg-blue-600 border-blue-400 text-white animate-pulse' : 'bg-black/40 border-white/10 text-white hover:bg-black/60'
-              }`}
-              title="Toggle Background Music"
-            >
-               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            </button>
-          )}
+        <div className="absolute inset-0 flex flex-col justify-end p-8">
           <button 
             onClick={() => setIsMuted(!isMuted)}
-            className="w-12 h-12 rounded-full bg-black/40 border-2 border-white/10 flex items-center justify-center text-white hover:bg-black/60 transition-all shadow-2xl"
+            className="w-14 h-14 bg-white/10 backdrop-blur-3xl rounded-full text-white self-center mb-auto flex items-center justify-center border border-white/20 hover:scale-110 transition-transform pointer-events-auto shadow-2xl"
           >
             {isMuted ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.41.33-.86.61-1.35.84l.01 2.06c1.03-.41 1.95-1.01 2.74-1.76L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             )}
           </button>
         </div>
+        
+        {isProcessing && (
+          <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center text-white p-10 text-center animate-in fade-in duration-500 z-50">
+            <div className="w-20 h-20 relative mb-8">
+               <div className="absolute inset-0 border-[5px] border-white/5 rounded-full"></div>
+               <div className="absolute inset-0 border-[5px] border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black mono tracking-tighter">{progress}%</span>
+            </div>
+            <p className="text-sm font-black uppercase tracking-[0.4em] text-blue-400 mono">Encoding Highlight</p>
+            <p className="text-[10px] text-slate-500 mt-3 uppercase tracking-widest leading-loose">H.264 Buffer Stream<br/>Muxing Audio/Video</p>
+          </div>
+        )}
       </div>
 
-      {selectedMusic && <audio ref={audioRef} src={selectedMusic.url} loop crossOrigin="anonymous" />}
-
-      <div className="p-10 flex flex-col flex-grow bg-white dark:bg-slate-900 border-t border-slate-50 dark:border-slate-800">
-        <div className="flex items-center justify-between mb-4">
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Viral Highlight</span>
-           </div>
-           <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-tighter">CLIP #{index + 1}</span>
+      <div className="p-8 space-y-6">
+        <div className="space-y-3">
+          <h3 className="text-2xl font-black text-white leading-tight tracking-tighter uppercase line-clamp-2">
+            {clip.hook}
+          </h3>
+          <p className="text-[12px] text-slate-400 font-medium leading-relaxed line-clamp-3">
+            {clip.reasoning}
+          </p>
         </div>
-        
-        <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4 leading-[1.15] uppercase tracking-tighter line-clamp-2">
-          {clip.hook}
-        </h3>
 
-        <p className="text-[11px] text-slate-400 dark:text-slate-500 mb-10 leading-relaxed font-medium line-clamp-3 italic">
-          "{clip.caption}"
-        </p>
-
-        <div className="mt-auto space-y-4">
-          <button 
+        <div className="flex gap-3 pt-2">
+          <button
+            onClick={handleDownload}
+            disabled={isProcessing}
+            className="flex-1 py-5 gradient-blue text-white text-[11px] font-black uppercase tracking-[0.3em] rounded-[1.8rem] hover:brightness-125 transition-all active:scale-95 disabled:opacity-50 shadow-xl border border-white/10"
+          >
+            Export Highlight
+          </button>
+          <button
             onClick={() => {
               navigator.clipboard.writeText(clip.caption);
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className={`w-full py-4 rounded-[1.25rem] text-[9px] font-black uppercase tracking-[0.25em] transition-all border ${
-              copied ? 'bg-emerald-500 border-emerald-400 text-white' : 'text-slate-400 dark:text-slate-500 hover:text-blue-600 border-slate-100 dark:border-slate-800'
-            }`}
+            className="w-16 flex items-center justify-center bg-white/5 text-slate-400 hover:text-white rounded-[1.8rem] transition-all border border-white/10 hover:bg-white/10"
+            title="Copy Social Post"
           >
-            {copied ? '✓ Caption Ready' : 'Copy Viral Caption'}
-          </button>
-          
-          <button 
-            onClick={handleDownload}
-            disabled={isProcessing}
-            className="group relative w-full py-6 rounded-3xl text-[11px] font-black uppercase tracking-[0.3em] transition-all bg-slate-950 dark:bg-white text-white dark:text-slate-950 shadow-2xl hover:translate-y-[-2px] active:scale-95 flex items-center justify-center gap-3 overflow-hidden disabled:opacity-95"
-          >
-            {isProcessing && (
-              <div 
-                className="absolute left-0 top-0 h-full bg-blue-600/40 transition-all duration-100 ease-out" 
-                style={{ width: `${progress}%` }}
-              />
+            {copied ? (
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
             )}
-            <span className="relative z-10 flex items-center gap-3">
-              {isProcessing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                  Extracting Clip... {progress}%
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  Download Viral MP4
-                </>
-              )}
-            </span>
           </button>
         </div>
       </div>

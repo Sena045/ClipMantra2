@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface HeaderProps {
@@ -8,29 +7,28 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ darkMode, toggleDarkMode }) => {
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-900 transition-colors">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center rotate-3 shadow-lg shadow-blue-500/20">
-              <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            <span className="text-sm font-black tracking-widest dark:text-white uppercase">
-              Clip <span className="text-blue-600">Free</span>
-            </span>
-          </div>
-          
-          <button
-            onClick={toggleDarkMode}
-            className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center hover:scale-110 transition-transform"
-          >
-            {darkMode ? (
-              <svg className="h-4 w-4 text-yellow-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v1m0 18v1m9-9h1M4 9h1m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            ) : (
-              <svg className="h-4 w-4 text-slate-600" fill="currentColor" viewBox="0 0 24 24"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-            )}
-          </button>
+    <header className="w-full py-6 px-10 flex justify-between items-center border-b border-white/5 bg-slate-950/50 backdrop-blur-xl fixed top-0 z-[100]">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 gradient-blue rounded-2xl shadow-xl flex items-center justify-center border border-white/10">
+          <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9.5 7.5L16.5 12L9.5 16.5V7.5Z" /></svg>
         </div>
+        <span className="font-extrabold text-2xl tracking-tighter text-white">
+          ClipMantra<span className="text-blue-500 opacity-80">.</span>
+        </span>
+      </div>
+      
+      <div className="flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-8">
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] hover:text-white cursor-pointer transition-colors mono">Engine</span>
+          <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] hover:text-white cursor-pointer transition-colors mono">Archive</span>
+        </nav>
+        <button
+          onClick={toggleDarkMode}
+          className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 group"
+          aria-label="Toggle Theme"
+        >
+          <svg className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+        </button>
       </div>
     </header>
   );
