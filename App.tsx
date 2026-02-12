@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header.tsx';
 import Footer from './components/Footer.tsx';
@@ -28,8 +27,8 @@ const App: React.FC = () => {
   const musicInputRef = useRef<HTMLInputElement>(null);
 
   // Check if API key is configured
-  // Note: Vite replaces process.env.API_KEY during build
-  const isKeyConfigured = process.env.API_KEY && process.env.API_KEY !== "" && process.env.API_KEY !== "undefined";
+  const apiKey = process.env.API_KEY;
+  const isKeyConfigured = typeof apiKey === 'string' && apiKey.length > 5;
 
   useEffect(() => {
     if (isDarkMode) document.documentElement.classList.add('dark');
@@ -100,9 +99,9 @@ const App: React.FC = () => {
               </div>
               
               <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">⚠️ Important Naming Rule</p>
+                <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-2">⚠️ Configuration Required</p>
                 <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                  Netlify only allows letters, numbers, and underscores. Use <code className="bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">API_KEY</code> exactly. Do not use hyphens like <del>GEMINI-KEY</del>.
+                  Your app is running but it needs an API Key to process videos.
                 </p>
               </div>
 
@@ -110,22 +109,15 @@ const App: React.FC = () => {
                 <div className="flex gap-4 items-start">
                   <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">1</span>
                   <div className="space-y-1">
-                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Get Key</p>
-                    <p className="text-[11px] font-bold text-slate-500">Visit <a href="https://aistudio.google.com/" target="_blank" className="text-blue-600 underline">Google AI Studio</a> and copy your free key.</p>
+                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Step 1</p>
+                    <p className="text-[11px] font-bold text-slate-500">Add <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1">API_KEY</code> to Netlify Site Settings.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 items-start">
                   <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
                   <div className="space-y-1">
-                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Open Netlify</p>
-                    <p className="text-[11px] font-bold text-slate-500">Go to <span className="text-slate-900 dark:text-slate-100 italic">Site Settings &gt; Environment Variables</span>.</p>
-                  </div>
-                </div>
-                <div className="flex gap-4 items-start">
-                  <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">3</span>
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Add Variable</p>
-                    <p className="text-[11px] font-bold text-slate-500">Click <span className="text-blue-600">"Add a variable"</span>. Key: <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1">API_KEY</code> | Value: <span className="italic">Your Key</span>.</p>
+                    <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Step 2</p>
+                    <p className="text-[11px] font-bold text-slate-500">Go to Deploys and click <span className="text-blue-600 font-bold">"Trigger deploy > Clear cache and deploy site"</span>.</p>
                   </div>
                 </div>
               </div>
@@ -135,7 +127,7 @@ const App: React.FC = () => {
                 target="_blank"
                 className="block w-full text-center bg-blue-600 py-5 rounded-2xl text-white font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-colors shadow-xl shadow-blue-500/20"
               >
-                Copy My Free Gemini Key
+                Get Free Gemini Key
               </a>
             </div>
           ) : (
