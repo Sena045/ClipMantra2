@@ -118,7 +118,7 @@ const App: React.FC = () => {
                   <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">2</span>
                   <div className="space-y-1">
                     <p className="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Open Netlify</p>
-                    <p className="text-[11px] font-bold text-slate-500">Go to <span className="text-slate-900 dark:text-slate-100 italic">Site Settings > Environment Variables</span>.</p>
+                    <p className="text-[11px] font-bold text-slate-500">Go to <span className="text-slate-900 dark:text-slate-100 italic">Site Settings &gt; Environment Variables</span>.</p>
                   </div>
                 </div>
                 <div className="flex gap-4 items-start">
