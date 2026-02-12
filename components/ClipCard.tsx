@@ -14,6 +14,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [useMusic, setUseMusic] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -59,9 +60,9 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     setIsProcessing(true);
     setProgress(0);
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
+    // Stop preview audio
+    if (audioRef.current) audioRef.current.pause();
+    if (videoRef.current) videoRef.current.pause();
 
     try {
       const processorVideo = document.createElement('video');
@@ -69,6 +70,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       processorVideo.muted = false; 
       processorVideo.crossOrigin = "anonymous";
       processorVideo.playsInline = true;
+      processorVideo.volume = 1.0;
       
       await new Promise((resolve) => {
         processorVideo.onloadedmetadata = resolve;
@@ -83,9 +85,14 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const dest = audioCtx.createMediaStreamDestination();
       
+      // Video Audio Node
       const videoSourceNode = audioCtx.createMediaElementSource(processorVideo);
-      videoSourceNode.connect(dest);
+      const videoGain = audioCtx.createGain();
+      videoGain.gain.value = 1.0;
+      videoSourceNode.connect(videoGain);
+      videoGain.connect(dest);
 
+      // Music Audio Node (Optional)
       let musicAudio: HTMLAudioElement | null = null;
       if (useMusic && selectedMusic) {
         musicAudio = new Audio(selectedMusic.url);
@@ -93,7 +100,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         musicAudio.loop = true;
         const musicSourceNode = audioCtx.createMediaElementSource(musicAudio);
         const musicGain = audioCtx.createGain();
-        musicGain.gain.value = 0.5; 
+        musicGain.gain.value = 0.35; // Slightly lower background music
         musicSourceNode.connect(musicGain);
         musicGain.connect(dest);
       }
@@ -104,19 +111,17 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         ...dest.stream.getAudioTracks()
       ]);
 
-      // Prioritize MP4 format
+      // MimeType detection
       let mimeType = 'video/mp4';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/mp4;codecs=h264';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm;codecs=h264';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'video/webm';
-      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/mp4;codecs=h264';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=h264';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
 
-      const recorder = new MediaRecorder(combinedStream, { mimeType });
+      const recorder = new MediaRecorder(combinedStream, { 
+        mimeType,
+        videoBitsPerSecond: 5000000 // 5Mbps for quality
+      });
+      
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
@@ -129,13 +134,16 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         const a = document.createElement('a');
         a.href = url;
         const extension = isMp4 ? 'mp4' : 'webm';
-        a.download = `clip-${clip.start.replace(/:/g, '-')}-to-${clip.end.replace(/:/g, '-')}.${extension}`;
+        a.download = `clip-${clip.hook.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
         a.click();
         URL.revokeObjectURL(url);
+        
         setIsProcessing(false);
         if (musicAudio) musicAudio.pause();
         audioCtx.close();
         
+        // Resume preview
+        if (videoRef.current) videoRef.current.play().catch(() => {});
         if (useMusic && audioRef.current) audioRef.current.play().catch(() => {});
       };
 
@@ -145,20 +153,18 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         processorVideo.onseeked = resolve;
       });
 
-      await new Promise(r => setTimeout(r, 150));
-
+      // Wait for audio to be ready
       await audioCtx.resume();
       recorder.start();
+      
       if (musicAudio) {
-        musicAudio.play();
+        await musicAudio.play();
       }
-      processorVideo.play();
+      await processorVideo.play();
 
       const renderFrame = () => {
         if (processorVideo.currentTime >= endSec || processorVideo.ended) {
-          if (recorder.state === 'recording') {
-            recorder.stop();
-          }
+          if (recorder.state === 'recording') recorder.stop();
           processorVideo.pause();
           return;
         }
@@ -179,7 +185,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
     } catch (err) {
       console.error("Clipping Error:", err);
       setIsProcessing(false);
-      alert("Extraction failed. Please try a different video or check your browser permissions.");
+      alert("Sound extraction failed. Ensure your browser allows auto-playing audio.");
     }
   };
 
@@ -192,7 +198,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
             ref={videoRef}
             src={`${videoSrc}#t=${startSec},${endSec}`}
             className="w-full h-full object-cover"
-            muted={!useMusic}
+            muted={isMuted}
             playsInline
             autoPlay
             loop
@@ -213,16 +219,29 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
           </div>
         </div>
 
-        {selectedMusic && (
+        <div className="absolute top-8 right-8 z-20 flex flex-col gap-3">
+          {selectedMusic && (
+            <button 
+              onClick={() => setUseMusic(!useMusic)}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-2xl border-2 ${
+                useMusic ? 'bg-blue-600 border-blue-400 text-white animate-pulse' : 'bg-black/40 border-white/10 text-white hover:bg-black/60'
+              }`}
+              title="Toggle Background Music"
+            >
+               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </button>
+          )}
           <button 
-            onClick={() => setUseMusic(!useMusic)}
-            className={`absolute top-8 right-8 z-20 w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-2xl border-2 ${
-              useMusic ? 'bg-blue-600 border-blue-400 text-white animate-pulse' : 'bg-black/40 border-white/10 text-white hover:bg-black/60'
-            }`}
+            onClick={() => setIsMuted(!isMuted)}
+            className="w-12 h-12 rounded-full bg-black/40 border-2 border-white/10 flex items-center justify-center text-white hover:bg-black/60 transition-all shadow-2xl"
           >
-             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            {isMuted ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+            )}
           </button>
-        )}
+        </div>
       </div>
 
       {selectedMusic && <audio ref={audioRef} src={selectedMusic.url} loop crossOrigin="anonymous" />}
@@ -231,7 +250,7 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
         <div className="flex items-center justify-between mb-4">
            <div className="flex items-center gap-2">
              <div className="w-2 h-2 rounded-full bg-blue-600"></div>
-             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Selected Segment</span>
+             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest">Viral Highlight</span>
            </div>
            <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-tighter">CLIP #{index + 1}</span>
         </div>
@@ -273,12 +292,12 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
               {isProcessing ? (
                 <>
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                  Extracting... {progress}%
+                  Extracting Sound... {progress}%
                 </>
               ) : (
                 <>
                   <svg className="w-5 h-5 group-hover:translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                  Get Viral Segment
+                  Download Viral Clip
                 </>
               )}
             </span>
