@@ -14,7 +14,8 @@ const ClipCard: React.FC<ClipCardProps> = ({ clip, videoSrc, index, selectedMusi
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [useMusic, setUseMusic] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  // Defaulting isMuted to true so sound is off in the preview by default
+  const [isMuted, setIsMuted] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
