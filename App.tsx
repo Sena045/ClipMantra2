@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 
 // --- Types ---
@@ -32,7 +31,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-4">
       <div className="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5">
-        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v5.0 Secure</span>
+        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v6.0 Ultra-Light</span>
       </div>
     </div>
   </header>
@@ -42,7 +41,7 @@ const Footer: React.FC = () => (
   <footer className="py-16 border-t border-white/5 text-center bg-slate-950">
     <div className="max-w-7xl mx-auto px-6 opacity-40">
       <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">
-        © {new Date().getFullYear()} CLIPMANTRA REPLICA • SECURE CLOUD PIPELINE
+        © {new Date().getFullYear()} CLIPMANTRA REPLICA • CLOUD OPTIMIZED
       </p>
     </div>
   </footer>
@@ -173,10 +172,12 @@ const App: React.FC = () => {
       const frames: string[] = [];
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = 270;
-      canvas.height = 480;
+      // Scaled down further to stay within Netlify payload limits (6MB)
+      canvas.width = 180;
+      canvas.height = 320;
 
-      const captureCount = 15; 
+      // Reduced to 10 frames to prevent oversized requests
+      const captureCount = 10; 
       const interval = video.duration / (captureCount + 1);
       
       for (let i = 1; i <= captureCount; i++) {
@@ -184,10 +185,11 @@ const App: React.FC = () => {
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.4));
+        // Using lower quality 0.3 to ensure payload is tiny
+        frames.push(canvas.toDataURL('image/jpeg', 0.3));
       }
 
-      setStatus('Secure AI Processing...');
+      setStatus('Cloud Processing...');
       
       const response = await fetch('/.netlify/functions/gemini', {
         method: 'POST',
@@ -200,8 +202,15 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'The server pipeline encountered an issue.');
+        let errorMsg = 'The server pipeline encountered an issue.';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch (e) {
+          // Response was not JSON (maybe a 504 or 500 HTML page)
+          errorMsg = `Server Error (${response.status}): The request might be too large or the API key is missing.`;
+        }
+        throw new Error(errorMsg);
       }
 
       const parsedClips = await response.json();
@@ -242,14 +251,14 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Secure Server Pipeline</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Cloud-Optimized Engine</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
             CLIPS DONE<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">THE RIGHT WAY.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">FASTER & BETTER.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Extract up to 10 viral segments securely. All AI logic is now handled in the cloud, keeping your application fast and private.
+            Extract up to 10 viral segments securely. Optimized frame sampling ensures high accuracy while maintaining zero-cost hosting stability.
           </p>
         </section>
 
@@ -259,11 +268,11 @@ const App: React.FC = () => {
             className={`group relative w-full glass-card rounded-[3rem] p-16 border-2 border-dashed transition-all cursor-pointer flex flex-col items-center gap-8 text-center ${videoFile ? 'border-blue-500 bg-blue-500/5' : 'border-white/10 hover:border-blue-500/40 hover:bg-white/5 shadow-2xl'}`}
           >
             <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-slate-500 group-hover:scale-110 group-hover:text-blue-500 transition-all">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             </div>
             <div>
               <h3 className="font-bold text-xl text-white line-clamp-1">{videoFile ? videoFile.name : "Select Video Source"}</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">AI EXTRACTS UP TO 10 CLIPS</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">UP TO 10 CLIPS • 15-60S DURATION</p>
             </div>
             <input type="file" ref={fileInputRef} onChange={onFileChange} accept="video/*" className="hidden" />
           </div>
@@ -302,9 +311,9 @@ const App: React.FC = () => {
             <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center text-red-400 mx-auto">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             </div>
-            <p className="text-red-400 font-bold tracking-tight">{error}</p>
+            <p className="text-red-400 font-bold tracking-tight text-sm leading-relaxed">{error}</p>
             <button onClick={generate} className="px-6 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors">
-              Retry Secure Scan
+              Retry Optimization Scan
             </button>
           </div>
         )}

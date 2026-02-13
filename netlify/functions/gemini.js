@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event) => {
@@ -16,24 +15,24 @@ export const handler = async (event) => {
     if (!apiKey) {
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: "API Key Not Found. Please configure process.env.API_KEY in Netlify settings." }) 
+        body: JSON.stringify({ error: "API_KEY not found in environment. Please check Netlify settings." }) 
       };
     }
 
     const ai = new GoogleGenAI({ apiKey });
     
-    const systemInstruction = `You are an expert viral content strategist. 
-    Analyze visual frames from "${filename}" to identify between 6 and 10 high-impact segments for social media.
+    const systemInstruction = `You are a professional viral strategist.
+    Analyze the provided frames from "${filename}" and identify 6-10 unique, high-impact segments.
     
-    RULES:
-    1. Quantity: Return 6-10 clips.
-    2. Duration: Each clip must be 15-60 seconds.
-    3. Language: Respond using ${language} strategy.
-    4. Format: Return ONLY valid JSON.`;
+    CONSTRAINTS:
+    - Return exactly between 6 and 10 segments.
+    - Each segment duration must be 15-60 seconds.
+    - Strategy should follow ${language} cultural trends.
+    - Format: Strict JSON array.`;
 
     const contents = {
       parts: [
-        { text: "Extract 6-10 viral segments (15-60s) from these frames." },
+        { text: "Extract 6-10 viral segments (15-60s) from these visual sequences." },
         ...frames.map((f) => ({
           inlineData: {
             mimeType: "image/jpeg",
@@ -54,13 +53,13 @@ export const handler = async (event) => {
           items: {
             type: Type.OBJECT,
             properties: {
-              start: { type: Type.STRING, description: "Start time (MM:SS)" },
-              end: { type: Type.STRING, description: "End time (MM:SS)" },
-              hook: { type: Type.STRING, description: "Viral Title" },
-              caption: { type: Type.STRING, description: "Engagement caption with hashtags" },
-              score: { type: Type.NUMBER, description: "Viral Potential 0-100" },
-              reasoning: { type: Type.STRING, description: "Psychological reason for choosing this clip" },
-              duration: { type: Type.STRING, description: "Estimated duration in seconds" }
+              start: { type: Type.STRING, description: "Start (MM:SS)" },
+              end: { type: Type.STRING, description: "End (MM:SS)" },
+              hook: { type: Type.STRING, description: "Engagement Title" },
+              caption: { type: Type.STRING, description: "Viral Caption & Tags" },
+              score: { type: Type.NUMBER, description: "Potential 0-100" },
+              reasoning: { type: Type.STRING, description: "Hook reasoning" },
+              duration: { type: Type.STRING, description: "Duration in seconds" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
           }
@@ -78,10 +77,10 @@ export const handler = async (event) => {
     };
 
   } catch (error) {
-    console.error("Gemini Cloud Error:", error);
+    console.error("Gemini Lambda Error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error.message || "The cloud AI pipeline timed out or failed." })
+      body: JSON.stringify({ error: error.message || "Failed to process video frames." })
     };
   }
 };
