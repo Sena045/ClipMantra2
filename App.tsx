@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Types ---
 interface Clip {
@@ -33,7 +32,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-4">
       <div className="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5">
-        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v4.5 Pro</span>
+        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v5.0 Secure</span>
       </div>
     </div>
   </header>
@@ -43,7 +42,7 @@ const Footer: React.FC = () => (
   <footer className="py-16 border-t border-white/5 text-center bg-slate-950">
     <div className="max-w-7xl mx-auto px-6 opacity-40">
       <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">
-        © {new Date().getFullYear()} CLIPMANTRA REPLICA • MAXIMIZED CLIP QUANTITY
+        © {new Date().getFullYear()} CLIPMANTRA REPLICA • SECURE CLOUD PIPELINE
       </p>
     </div>
   </footer>
@@ -93,7 +92,6 @@ const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, vid
           playsInline
         />
         
-        {/* Progress Bar */}
         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10">
           <div 
             className="h-full bg-blue-500 transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(59,130,246,0.8)]" 
@@ -175,11 +173,9 @@ const App: React.FC = () => {
       const frames: string[] = [];
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      // Balance between quality and payload size (480p height)
       canvas.width = 270;
       canvas.height = 480;
 
-      // Increased from 8 to 15 to capture more details across the video
       const captureCount = 15; 
       const interval = video.duration / (captureCount + 1);
       
@@ -188,68 +184,31 @@ const App: React.FC = () => {
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.4)); // Lower quality for higher quantity
+        frames.push(canvas.toDataURL('image/jpeg', 0.4));
       }
 
-      setStatus('Finding Viral Hooks...');
+      setStatus('Secure AI Processing...');
       
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const systemInstruction = `You are an expert viral content strategist. 
-      Analyze the visual frames of "${videoFile.name}" to identify at least 6 and up to 10 high-impact viral clips.
-      
-      CRITICAL REQUIREMENTS:
-      1. Quantity: You must provide at least 6 unique clips. If the video is long enough, provide up to 10.
-      2. Duration: Each clip MUST be between 15 and 60 seconds long.
-      3. Hooks: Find diverse segments across the entire video.
-      4. Language: Respond in ${language}.
-      5. Format: Return ONLY a valid JSON array.
-      6. Reasoning: Explain the specific psychological hook for each clip.`;
-
-      const contents = {
-        parts: [
-          { text: "Find 6-10 unique viral segments (15-60s each). Return JSON array." },
-          ...frames.map(data => ({
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: data.split(',')[1]
-            }
-          }))
-        ]
-      };
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                start: { type: Type.STRING, description: "Start time MM:SS" },
-                end: { type: Type.STRING, description: "End time MM:SS" },
-                duration: { type: Type.STRING, description: "Duration in seconds" },
-                hook: { type: Type.STRING, description: "Viral Title" },
-                caption: { type: Type.STRING, description: "Captions and tags" },
-                score: { type: Type.NUMBER, description: "Viral score 0-100" },
-                reasoning: { type: Type.STRING, description: "Hook explanation" }
-              },
-              required: ["start", "end", "duration", "hook", "caption", "score", "reasoning"]
-            }
-          }
-        }
+      const response = await fetch('/.netlify/functions/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: videoFile.name,
+          language,
+          frames
+        })
       });
 
-      const resultText = response.text;
-      if (!resultText) throw new Error("AI engine did not return a response.");
-      
-      const parsedClips = JSON.parse(resultText);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'The server pipeline encountered an issue.');
+      }
+
+      const parsedClips = await response.json();
       setClips(parsedClips);
     } catch (err: any) {
       console.error("Pipeline Failure:", err);
-      setError(err.message || "The AI engine is working overtime. Please try again.");
+      setError(err.message || "The secure AI engine encountered a momentary glitch.");
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -283,14 +242,14 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Direct Flash Pro Engine</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Secure Server Pipeline</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
-            MORE CLIPS.<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">MORE GROWTH.</span>
+            CLIPS DONE<br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">THE RIGHT WAY.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Our upgraded 15-frame analysis now extracts up to 10 viral segments from a single video, maximizing your content output.
+            Extract up to 10 viral segments securely. All AI logic is now handled in the cloud, keeping your application fast and private.
           </p>
         </section>
 
@@ -327,7 +286,7 @@ const App: React.FC = () => {
                   <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
                   {status}
                 </span>
-              ) : "Extract All Viral Clips"}
+              ) : "Extract Viral Clips"}
             </button>
           </div>
         </section>
@@ -345,7 +304,7 @@ const App: React.FC = () => {
             </div>
             <p className="text-red-400 font-bold tracking-tight">{error}</p>
             <button onClick={generate} className="px-6 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors">
-              Retry Full Scan
+              Retry Secure Scan
             </button>
           </div>
         )}
