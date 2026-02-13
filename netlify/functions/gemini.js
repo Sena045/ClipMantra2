@@ -24,7 +24,7 @@ export const handler = async (event) => {
     const body = JSON.parse(event.body || "{}");
     const { filename, language, frames = [] } = body;
 
-    // Limit to 3 frames to avoid Netlify payload (6MB) and timeout (10s) limits
+    // Limit to 3 frames to avoid Netlify payload limits (6MB) and timeout (10s)
     const limitedFrames = Array.isArray(frames) ? frames.slice(0, 3) : [];
 
     const apiKey = process.env.API_KEY;
@@ -32,19 +32,19 @@ export const handler = async (event) => {
       return {
         statusCode: 500,
         headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ error: "Missing API_KEY in environment" })
+        body: JSON.stringify({ error: "Missing API_KEY in environment. Set it in Netlify settings." })
       };
     }
 
-    // Initialize the AI client using ESM-compatible GoogleGenAI
+    // Initialize the AI client
     const ai = new GoogleGenAI({ apiKey });
 
-    // Use gemini-3-flash-preview for high quality viral analysis
+    // Use gemini-3-flash-preview for high performance viral analysis
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
-          { text: `Analyze these frames from "${filename}" and identify 3 high-impact viral segments optimized for ${language}. Return exactly 3 segments.` },
+          { text: `Analyze these frames from "${filename}" and identify 3 high-impact viral segments optimized for ${language}. Return exactly 3 segments as a JSON array.` },
           ...limitedFrames.map((f) => ({
             inlineData: {
               mimeType: "image/jpeg",
@@ -54,7 +54,7 @@ export const handler = async (event) => {
         ]
       },
       config: {
-        systemInstruction: "You are a world-class viral content strategist. Pinpoint high-retention moments and provide actionable metadata for TikTok/Reels.",
+        systemInstruction: "You are a world-class viral content strategist. Pinpoint high-retention moments and provide actionable metadata for TikTok/Reels. Return strictly JSON.",
         responseMimeType: "application/json",
         thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
@@ -85,7 +85,7 @@ export const handler = async (event) => {
       body: response.text
     };
   } catch (error) {
-    console.error("Function Crash:", error);
+    console.error("Function Error:", error);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
