@@ -44,7 +44,7 @@ export const generateViralShorts = async (
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: "gemini-flash-lite-latest",
+      model: 'gemini-3-flash-preview',
       contents: { parts },
       config: {
         systemInstruction,
@@ -67,7 +67,9 @@ export const generateViralShorts = async (
       }
     });
 
-    return JSON.parse(response.text || "[]");
+    const text = response.text;
+    if (!text) throw new Error("No analysis returned from AI.");
+    return JSON.parse(text.trim());
   } catch (error: any) {
     console.error("Gemini AI Error:", error);
     if (error.message?.includes('429')) {
