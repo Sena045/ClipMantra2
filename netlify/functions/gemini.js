@@ -1,6 +1,19 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event) => {
+  // Handle preflight requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS"
+      }
+    };
+  }
+
   if (event.httpMethod !== 'POST') {
     return { 
       statusCode: 405, 
@@ -15,19 +28,20 @@ export const handler = async (event) => {
     if (!apiKey) {
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: "API_KEY configuration missing in cloud environment." }) 
+        body: JSON.stringify({ error: "API_KEY configuration missing in cloud environment. Please set it in Netlify settings." }) 
       };
     }
 
+    // Initialize the AI client
     const ai = new GoogleGenAI({ apiKey });
     
-    // Using gemini-3-flash-preview as it is faster and more capable than 1.5-flash.
-    // Setting thinkingBudget: 0 to ensure the function completes within the Netlify 10s timeout limit.
+    // Use gemini-flash-lite-latest for the fastest possible response to avoid Netlify timeouts
+    // We remove thinkingConfig entirely to prioritize immediate output generation.
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-flash-lite-latest', 
       contents: {
         parts: [
-          { text: `Viral Content Analysis for: ${filename}. Identify 6-10 highly engaging clips (15-60s each) using ${language} strategy. Return strictly as a JSON array.` },
+          { text: `Analyze these frames from "${filename}" and identify 6-10 viral segments (15-60s each). Use a ${language} content strategy.` },
           ...frames.map((f) => ({
             inlineData: {
               mimeType: "image/jpeg",
@@ -37,21 +51,20 @@ export const handler = async (event) => {
         ]
       },
       config: {
-        systemInstruction: "You are a world-class social media viral growth expert. Your task is to analyze video frames and pinpoint the exact moments that will perform best on TikTok, Reels, and Shorts. Focus on high-emotion hooks, controversial statements, or visually stunning transitions.",
+        systemInstruction: "You are a viral growth expert. Extract 6-10 viral clips. Return only a JSON array of objects with the specified schema. No markdown, no extra text.",
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              start: { type: Type.STRING, description: "Start (MM:SS)" },
-              end: { type: Type.STRING, description: "End (MM:SS)" },
-              hook: { type: Type.STRING, description: "Viral Headline" },
-              caption: { type: Type.STRING, description: "High-retention caption" },
-              score: { type: Type.NUMBER, description: "Viral Score (0-100)" },
-              reasoning: { type: Type.STRING, description: "The psychological 'why' behind this clip" },
-              duration: { type: Type.STRING, description: "Clip length in seconds" }
+              start: { type: Type.STRING, description: "Start time (MM:SS)" },
+              end: { type: Type.STRING, description: "End time (MM:SS)" },
+              hook: { type: Type.STRING, description: "Short viral title" },
+              caption: { type: Type.STRING, description: "Engaging caption" },
+              score: { type: Type.NUMBER, description: "Viral score 0-100" },
+              reasoning: { type: Type.STRING, description: "Why it works" },
+              duration: { type: Type.STRING, description: "Length in seconds" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
           }
@@ -62,7 +75,8 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*"
       },
       body: response.text
     };
@@ -70,16 +84,16 @@ export const handler = async (event) => {
   } catch (error) {
     console.error("Cloud Engine Error:", error);
     
-    // Check for common errors
-    let status = 500;
-    let message = error.message || "The AI engine encountered a processing error.";
-    
-    if (message.includes("quota")) {
-      message = "API Quota exceeded. Please try again in a minute.";
+    let message = error.message || "Unknown processing error.";
+    if (message.includes("429") || message.toLowerCase().includes("quota")) {
+      message = "Quota exceeded (429). Please wait a few seconds and try again.";
+    } else if (message.includes("403")) {
+      message = "Access denied (403). Check if your API key is valid and has permission for this model.";
     }
 
     return {
-      statusCode: status,
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: message })
     };
   }

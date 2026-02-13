@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 
 // --- Types ---
@@ -31,7 +32,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-4">
       <div className="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5">
-        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Cloud Engine v7.0</span>
+        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Cloud Engine v8.0 Lite</span>
       </div>
     </div>
   </header>
@@ -41,7 +42,7 @@ const Footer: React.FC = () => (
   <footer className="py-16 border-t border-white/5 text-center bg-slate-950">
     <div className="max-w-7xl mx-auto px-6 opacity-40">
       <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">
-        © {new Date().getFullYear()} CLIPMANTRA REPLICA • SECURE CLOUD PIPELINE
+        © {new Date().getFullYear()} CLIPMANTRA REPLICA • HIGH PERFORMANCE CLOUD
       </p>
     </div>
   </footer>
@@ -162,32 +163,33 @@ const App: React.FC = () => {
     setClips([]);
     
     try {
-      setStatus('Scanning Video...');
+      setStatus('Initializing Video Stream...');
       const video = document.createElement('video');
       video.src = videoSrc;
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         video.onloadedmetadata = resolve;
+        video.onerror = () => reject(new Error("Video playback failed. Try a different file."));
       });
       
       const frames: string[] = [];
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      // Extreme optimization for Netlify 10s limit and 6MB payload limit
-      canvas.width = 160;
-      canvas.height = 280;
+      // Ultra-low resolution for maximum reliability
+      canvas.width = 120;
+      canvas.height = 210;
 
-      const captureCount = 8; 
+      const captureCount = 6; 
       const interval = video.duration / (captureCount + 1);
       
       for (let i = 1; i <= captureCount; i++) {
-        setStatus(`Capturing Index ${i}/${captureCount}...`);
+        setStatus(`Indexing Frame ${i}/${captureCount}...`);
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
         frames.push(canvas.toDataURL('image/jpeg', 0.2));
       }
 
-      setStatus('AI Analysis (Fast Track)...');
+      setStatus('AI Processing (Ultra-Lite Mode)...');
       
       const response = await fetch('/.netlify/functions/gemini', {
         method: 'POST',
@@ -206,9 +208,9 @@ const App: React.FC = () => {
           errorMessage = errorData.error || errorMessage;
         } catch (e) {
           if (response.status === 504) {
-            errorMessage = "Server Timeout: The AI took too long to think. Trying a shorter video or fewer frames might help.";
+            errorMessage = "Server Timeout: The cloud engine took more than 10s. This usually happens if the AI is busy or the input is too complex.";
           } else {
-            errorMessage = `Cloud Error (${response.status}): Ensure your API_KEY is set in Netlify settings.`;
+            errorMessage = `Cloud Error (${response.status}): The server returned an invalid response. Check your API_KEY setting.`;
           }
         }
         throw new Error(errorMessage);
@@ -217,8 +219,8 @@ const App: React.FC = () => {
       const parsedClips = await response.json();
       setClips(parsedClips);
     } catch (err: any) {
-      console.error("Critical Failure:", err);
-      setError(err.message || "An unexpected error occurred in the AI cloud.");
+      console.error("Pipeline Failure:", err);
+      setError(err.message || "An unexpected error occurred in the cloud engine.");
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -252,14 +254,14 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Secure Cloud Analytics</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Ultra-Lite Cloud Architecture</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
-            VIRAL CLIPS<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">DEMOCRATIZED.</span>
+            FAST VIRAL<br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">EXTRACTION.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Extract up to 10 high-retention segments using Gemini 3.0 Flash. Our cloud-optimized pipeline is built for speed and privacy.
+            Optimized for Netlify's free tier. We use lightweight frame sampling and the fastest AI models to ensure you get viral results in seconds.
           </p>
         </section>
 
@@ -272,8 +274,8 @@ const App: React.FC = () => {
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             </div>
             <div>
-              <h3 className="font-bold text-xl text-white line-clamp-1">{videoFile ? videoFile.name : "Choose Video"}</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">UP TO 10 CLIPS • CLOUD ANALYZED</p>
+              <h3 className="font-bold text-xl text-white line-clamp-1">{videoFile ? videoFile.name : "Select Video File"}</h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">MP4, MOV, WEBM • OPTIMIZED ANALYSIS</p>
             </div>
             <input type="file" ref={fileInputRef} onChange={onFileChange} accept="video/*" className="hidden" />
           </div>
@@ -284,7 +286,7 @@ const App: React.FC = () => {
               value={language}
               onChange={e => setLanguage(e.target.value as LanguagePreference)}
             >
-              {Object.values(LanguagePreference).map(l => <option key={l} value={l}>{l} Logic</option>)}
+              {Object.values(LanguagePreference).map(l => <option key={l} value={l}>{l} Strategy</option>)}
             </select>
             <button 
               onClick={generate}
@@ -296,7 +298,7 @@ const App: React.FC = () => {
                   <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
                   {status}
                 </span>
-              ) : "Extract All Clips"}
+              ) : "Identify Viral Clips"}
             </button>
           </div>
         </section>
@@ -315,9 +317,9 @@ const App: React.FC = () => {
             <p className="text-red-400 font-bold tracking-tight text-sm leading-relaxed">{error}</p>
             <div className="pt-4 flex flex-col gap-2">
               <button onClick={generate} className="w-full px-6 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors">
-                Retry Process
+                Retry Cloud Scan
               </button>
-              <p className="text-[9px] text-slate-500 mono uppercase">PRO TIP: ENSURE API_KEY IS IN NETLIFY ENV VARS</p>
+              <p className="text-[9px] text-slate-500 mono uppercase">PRO TIP: ENSURE YOUR NETLIFY "API_KEY" IS SET CORRECTLY</p>
             </div>
           </div>
         )}
