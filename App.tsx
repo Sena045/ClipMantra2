@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 
 // --- Types ---
 interface Clip {
@@ -8,7 +9,8 @@ interface Clip {
   hook: string;
   caption: string;
   score: number;
-  reasoning?: string;
+  reasoning: string;
+  duration?: string;
 }
 
 enum LanguagePreference {
@@ -20,37 +22,36 @@ enum LanguagePreference {
 // --- Sub-Components ---
 
 const Header: React.FC = () => (
-  <header className="w-full py-6 px-10 flex justify-between items-center border-b border-white/5 bg-slate-950/80 backdrop-blur-2xl fixed top-0 z-[100]">
+  <header className="w-full py-6 px-8 flex justify-between items-center border-b border-white/5 bg-slate-950/80 backdrop-blur-xl fixed top-0 z-[100]">
     <div className="flex items-center gap-4">
-      <div className="w-10 h-10 gradient-blue rounded-2xl shadow-xl flex items-center justify-center border border-white/10">
+      <div className="w-10 h-10 gradient-blue rounded-xl shadow-lg flex items-center justify-center border border-white/10">
         <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9.5 7.5L16.5 12L9.5 16.5V7.5Z" /></svg>
       </div>
       <span className="font-extrabold text-2xl tracking-tighter text-white">
-        ClipMantra<span className="text-blue-500 opacity-80">.</span>
+        ClipMantra<span className="text-blue-500">.</span>
       </span>
     </div>
-    <div className="hidden md:flex items-center gap-6">
-      <div className="px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
-        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mono">Cloud Engine Active</span>
+    <div className="hidden md:flex items-center gap-4">
+      <div className="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5">
+        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v4.0 Stable</span>
       </div>
     </div>
   </header>
 );
 
 const Footer: React.FC = () => (
-  <footer className="py-20 border-t border-white/5 text-center bg-slate-950">
-    <div className="max-w-7xl mx-auto px-6 space-y-8 opacity-40">
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] mono text-white">© {new Date().getFullYear()} CLIPMANTRA FREE REPLICA • PROSECURE ENGINE</p>
-      <div className="flex justify-center gap-6">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">v3.1.3 Lite</span>
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Netlify Verified</span>
-      </div>
+  <footer className="py-16 border-t border-white/5 text-center bg-slate-950">
+    <div className="max-w-7xl mx-auto px-6 opacity-40">
+      <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">
+        © {new Date().getFullYear()} CLIPMANTRA REPLICA • OPTIMIZED FOR VIRAL DURATIONS
+      </p>
     </div>
   </footer>
 );
 
 const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, videoSrc }) => {
   const [isMuted, setIsMuted] = useState(true);
+  const [progress, setProgress] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const parseTime = (timeStr: string) => {
@@ -61,18 +62,27 @@ const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, vid
 
   const start = parseTime(clip.start);
   const end = parseTime(clip.end);
+  const totalDuration = end - start;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoSrc) return;
-    const handleLoop = () => { if (video.currentTime >= end) video.currentTime = start; };
-    video.addEventListener('timeupdate', handleLoop);
-    return () => video.removeEventListener('timeupdate', handleLoop);
-  }, [start, end, videoSrc]);
+    
+    const handleTimeUpdate = () => {
+      if (video.currentTime >= end || video.currentTime < start) {
+        video.currentTime = start;
+      }
+      const currentPos = video.currentTime - start;
+      setProgress((currentPos / totalDuration) * 100);
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+  }, [start, end, videoSrc, totalDuration]);
 
   return (
-    <div className="group glass-card rounded-[3.5rem] overflow-hidden border border-white/5 flex flex-col h-full hover:scale-[1.02] transition-all duration-500 shadow-2xl hover:shadow-blue-500/20">
-      <div className="aspect-[9/16] bg-black relative">
+    <div className="group glass-card rounded-[2.5rem] overflow-hidden border border-white/10 flex flex-col h-full hover:scale-[1.02] transition-all duration-500 shadow-2xl hover:shadow-blue-500/20">
+      <div className="aspect-[9/16] bg-black relative cursor-pointer" onClick={() => setIsMuted(!isMuted)}>
         <video 
           ref={videoRef}
           src={`${videoSrc}#t=${start}`}
@@ -82,25 +92,53 @@ const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, vid
           loop
           playsInline
         />
-        <div className="absolute top-6 left-6 right-6 flex justify-between items-start">
-          <div className="bg-blue-600 px-4 py-2 rounded-xl text-[10px] font-black text-white uppercase tracking-widest shadow-lg">{clip.score}% Viral</div>
-          <div className="bg-black/80 backdrop-blur-md px-3 py-2 rounded-xl text-[10px] font-black text-white mono border border-white/10">{clip.start} - {clip.end}</div>
+        
+        {/* Progress Bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10">
+          <div 
+            className="h-full bg-blue-500 transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(59,130,246,0.8)]" 
+            style={{ width: `${progress}%` }}
+          />
         </div>
-        <button onClick={() => setIsMuted(!isMuted)} className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-          <div className="w-16 h-16 bg-blue-600/90 rounded-full flex items-center justify-center text-white backdrop-blur-md shadow-2xl">
-            {isMuted ? <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.41.33-.86.61-1.35.84l.01 2.06c1.03-.41 1.95-1.01 2.74-1.76L19.73 21 21 19.73 4.27 3z"/></svg> : <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>}
+
+        <div className="absolute top-5 left-5 right-5 flex justify-between items-start pointer-events-none">
+          <div className="bg-blue-600 px-3 py-1.5 rounded-lg text-[9px] font-black text-white uppercase tracking-widest shadow-xl flex items-center gap-2">
+            <span className="flex h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            {clip.score}% Viral
           </div>
-        </button>
-      </div>
-      <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
-        <div className="space-y-4">
-          <h3 className="text-2xl font-black text-white uppercase tracking-tighter leading-tight">{clip.hook}</h3>
-          <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 italic opacity-80">"{clip.reasoning}"</p>
+          <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-black text-white mono border border-white/10">
+            {clip.start} - {clip.end}
+          </div>
         </div>
-        <div className="flex gap-4 pt-4 border-t border-white/5">
-          <button onClick={() => alert("Ready: Segment identified for your shorts.")} className="flex-1 py-4 gradient-blue text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:brightness-110 active:scale-95 transition-all">Download</button>
-          <button onClick={() => { navigator.clipboard.writeText(clip.caption); alert("Viral Caption Copied!"); }} className="px-6 bg-white/5 text-slate-400 rounded-2xl hover:text-white transition-all border border-white/5">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+        
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+          <div className="w-14 h-14 bg-blue-600/90 rounded-full flex items-center justify-center text-white backdrop-blur-md shadow-2xl">
+            {isMuted ? (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.41.33-.86.61-1.35.84l.01 2.06c1.03-.41 1.95-1.01 2.74-1.76L19.73 21 21 19.73 4.27 3z"/></svg>
+            ) : (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-8 space-y-4 flex-1 flex flex-col">
+        <div className="flex justify-between items-start gap-2">
+          <h3 className="text-xl font-black text-white tracking-tight leading-tight uppercase italic flex-1">{clip.hook}</h3>
+          {clip.duration && <span className="text-[10px] font-bold text-slate-500 mono pt-1">{clip.duration}s</span>}
+        </div>
+        <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 opacity-80">{clip.reasoning}</p>
+        
+        <div className="pt-4 mt-auto border-t border-white/5 flex gap-3">
+          <button className="flex-1 py-3 gradient-blue text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
+            Download HD
+          </button>
+          <button 
+            onClick={() => { navigator.clipboard.writeText(clip.caption); alert("Viral Caption Copied!"); }}
+            className="px-4 bg-white/5 text-slate-400 rounded-xl hover:text-white hover:bg-white/10 transition-all border border-white/5"
+            title="Copy Caption"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
           </button>
         </div>
       </div>
@@ -120,11 +158,103 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
+  const generate = async () => {
+    if (!videoFile || !videoSrc) return;
+    setIsLoading(true);
+    setError(null);
+    setClips([]);
+    
+    try {
+      setStatus('Scanning Timeline...');
+      const video = document.createElement('video');
+      video.src = videoSrc;
+      await new Promise((resolve) => {
+        video.onloadedmetadata = resolve;
+      });
+      
+      const frames: string[] = [];
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      // Balance between quality and payload size (480p height)
+      canvas.width = 270;
+      canvas.height = 480;
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const captureCount = 8; // More frames for better duration estimation
+      const interval = video.duration / (captureCount + 1);
+      
+      for (let i = 1; i <= captureCount; i++) {
+        setStatus(`Indexing Viewport ${i}/${captureCount}...`);
+        video.currentTime = interval * i;
+        await new Promise(r => video.onseeked = r);
+        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        frames.push(canvas.toDataURL('image/jpeg', 0.5));
+      }
+
+      setStatus('AI Viral Matching...');
+      
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+      const systemInstruction = `You are a viral content strategist for TikTok and Instagram Reels. 
+      Analyze the visual frames of "${videoFile.name}" to identify exactly 3 high-impact clips.
+      
+      CRITICAL REQUIREMENTS:
+      1. Duration: Each clip MUST be between 15 and 60 seconds long for maximum retention.
+      2. Hooks: Identify visual or narrative peaks.
+      3. Language: Respond in ${language}.
+      4. Format: Return ONLY a valid JSON array.
+      5. Reasoning: Explain the viral psychological hook for each clip.`;
+
+      const contents = {
+        parts: [
+          { text: "Find 3 viral segments with durations between 15-60s. Return JSON array." },
+          ...frames.map(data => ({
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: data.split(',')[1]
+            }
+          }))
+        ]
+      };
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents,
+        config: {
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                start: { type: Type.STRING, description: "Start time MM:SS" },
+                end: { type: Type.STRING, description: "End time MM:SS" },
+                duration: { type: Type.STRING, description: "Duration in seconds (e.g. '30')" },
+                hook: { type: Type.STRING, description: "High-retention title" },
+                caption: { type: Type.STRING, description: "Instagram/TikTok caption with tags" },
+                score: { type: Type.NUMBER, description: "Viral confidence 0-100" },
+                reasoning: { type: Type.STRING, description: "Psychological explanation of the hook" }
+              },
+              required: ["start", "end", "duration", "hook", "caption", "score", "reasoning"]
+            }
+          }
+        }
+      });
+
+      const resultText = response.text;
+      if (!resultText) throw new Error("AI engine did not return a response.");
+      
+      const parsedClips = JSON.parse(resultText);
+      setClips(parsedClips);
+    } catch (err: any) {
+      console.error("Pipeline Failure:", err);
+      setError(err.message || "The AI engine is taking a breather. Please try again.");
+    } finally {
+      setIsLoading(false);
+      setStatus('');
+    }
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setVideoFile(file);
@@ -135,124 +265,90 @@ const App: React.FC = () => {
     }
   };
 
-  const generate = async () => {
-    if (!videoFile || !videoSrc) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      setStatus('Optimizing for Cloud...');
-      const video = document.createElement('video');
-      video.src = videoSrc;
-      await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve;
-        video.onerror = () => reject(new Error("Video format not supported."));
-      });
-      
-      const frames: string[] = [];
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      // Ultra-low resolution (200px) to stay within 10s Netlify limit
-      canvas.width = 200;
-      canvas.height = 356;
-
-      const captureCount = 2; // Only 2 frames for maximum speed
-      const interval = video.duration / (captureCount + 1);
-      
-      for (let i = 1; i <= captureCount; i++) {
-        setStatus(`Sampling ${i}/${captureCount}...`);
-        video.currentTime = interval * i;
-        await new Promise(r => video.onseeked = r);
-        ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.3)); 
-      }
-
-      setStatus('AI Analysis...');
-      const response = await fetch('/.netlify/functions/gemini', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: videoFile.name,
-          language,
-          frames
-        })
-      });
-
-      if (!response.ok) {
-        if (response.status === 502) {
-            throw new Error("Cloud Gateway Error: Netlify timed out after 10s. Try a shorter file or simpler video.");
-        }
-        const errorData = await response.json().catch(() => ({ error: "Server encountered an error." }));
-        throw new Error(errorData.error || `Server Error: ${response.status}`);
-      }
-
-      const results = await response.json();
-      setClips(results);
-    } catch (err: any) {
-      console.error("Pipeline Error:", err);
-      setError(err.message || "Something went wrong. Please check your Netlify logs and environment variables.");
-    } finally {
-      setIsLoading(false);
-      setStatus('');
-    }
-  };
-
   return (
-    <div className="min-h-screen relative overflow-hidden bg-slate-950">
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full animate-pulse"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/10 blur-[150px] rounded-full"></div>
-      
+    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-600/30">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 blur-[180px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-emerald-600/5 blur-[180px] rounded-full"></div>
+      </div>
+
       <Header />
 
       <main className="max-w-7xl mx-auto px-6 pt-32 pb-40 space-y-24 relative z-10">
-        <section className="text-center space-y-8 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-3 px-5 py-2 glass-card rounded-full border border-white/10 shadow-lg">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        <section className="text-center space-y-6 max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 glass-card rounded-full border border-white/10 shadow-xl">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mono">Cloud Engine Active</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Direct Flash Cloud Engine</span>
           </div>
-          <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">CLIPS THAT<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-emerald-400">EXPLODE.</span></h1>
-          <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">High-speed viral analysis. Fully optimized for cloud deployment.</p>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
+            LONG FORM TO<br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">SHORT-FORM GOLD.</span>
+          </h1>
+          <p className="text-lg md:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
+            Engineered to find the most engaging 15-60 second segments that guarantee high retention and audience growth.
+          </p>
         </section>
 
-        <section className="max-w-2xl mx-auto space-y-10">
-          <div onClick={() => fileInputRef.current?.click()} className={`group relative w-full glass-card rounded-[4rem] p-24 border-2 border-dashed transition-all flex flex-col items-center gap-10 text-center cursor-pointer ${videoFile ? 'border-emerald-500 bg-emerald-500/5' : 'border-white/10 hover:border-blue-500/40 shadow-2xl'}`}>
-            <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center text-slate-500 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xl">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <section className="max-w-xl mx-auto space-y-8">
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            className={`group relative w-full glass-card rounded-[3rem] p-16 border-2 border-dashed transition-all cursor-pointer flex flex-col items-center gap-8 text-center ${videoFile ? 'border-blue-500 bg-blue-500/5' : 'border-white/10 hover:border-blue-500/40 hover:bg-white/5 shadow-2xl'}`}
+          >
+            <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center text-slate-500 group-hover:scale-110 group-hover:text-blue-500 transition-all">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
             </div>
             <div>
-              <h3 className="font-black text-3xl text-white">{videoFile ? videoFile.name : "Choose Video"}</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 mono">MP4 • WEBM • MOV</p>
+              <h3 className="font-bold text-xl text-white line-clamp-1">{videoFile ? videoFile.name : "Select Video Source"}</h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">UP TO 500MB • OPTIMIZED FOR 9:16 & 16:9</p>
             </div>
-            <input type="file" ref={fileInputRef} onChange={handleFile} accept="video/*" className="hidden" />
+            <input type="file" ref={fileInputRef} onChange={onFileChange} accept="video/*" className="hidden" />
           </div>
 
-          <div className="flex flex-col md:flex-row gap-5">
-            <select className="flex-1 bg-slate-900 px-10 py-6 rounded-[2.5rem] border border-white/10 font-black text-xs uppercase tracking-[0.2em] text-white outline-none focus:ring-2 focus:ring-blue-500/50" value={language} onChange={e => setLanguage(e.target.value as LanguagePreference)}>
-              {Object.values(LanguagePreference).map(l => <option key={l} value={l}>{l}</option>)}
+          <div className="flex flex-col md:flex-row gap-4">
+            <select 
+              className="flex-1 bg-slate-900 px-6 py-5 rounded-2xl border border-white/10 font-black text-[10px] uppercase tracking-widest text-white outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
+              value={language}
+              onChange={e => setLanguage(e.target.value as LanguagePreference)}
+            >
+              {Object.values(LanguagePreference).map(l => <option key={l} value={l}>{l} Strategy</option>)}
             </select>
-            <button onClick={generate} disabled={isLoading || !videoFile} className="flex-[1.5] gradient-blue text-white py-6 rounded-[2.5rem] font-black uppercase tracking-[0.35em] text-[13px] shadow-[0_20px_50px_rgba(37,99,235,0.3)] disabled:opacity-20 active:scale-95 transition-all">
-              {isLoading ? <span className="flex items-center justify-center gap-4"><span className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></span> {status}</span> : "Scan For Viral Highlights"}
+            <button 
+              onClick={generate}
+              disabled={isLoading || !videoFile}
+              className="flex-[1.5] gradient-blue text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl disabled:opacity-20 active:scale-95 transition-all"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-3">
+                  <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+                  {status}
+                </span>
+              ) : "Identify Viral Loops"}
             </button>
           </div>
         </section>
 
         {clips.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 pt-10 animate-in slide-in-from-bottom-10 duration-1000">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 pt-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             {clips.map((c, idx) => <ClipCard key={idx} clip={c} videoSrc={videoSrc} />)}
           </div>
         )}
 
         {error && (
-          <div className="max-w-lg mx-auto p-12 glass-card rounded-[3rem] border border-red-500/30 text-red-400 text-sm font-black uppercase tracking-[0.3em] text-center shadow-2xl">
-             <div className="mb-4">⚠️ SYSTEM ALERT</div>
-             <p className="mb-6 opacity-80 leading-relaxed">{error}</p>
-             <button onClick={generate} className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest border border-red-500/20">Retry Pipeline</button>
+          <div className="max-w-lg mx-auto p-10 glass-card rounded-[2.5rem] border border-red-500/20 text-center space-y-6">
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center text-red-400 mx-auto">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <p className="text-red-400 font-bold tracking-tight">{error}</p>
+            <button onClick={generate} className="px-6 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors">
+              Re-scan File
+            </button>
           </div>
         )}
       </main>
-      
+
       <Footer />
     </div>
   );

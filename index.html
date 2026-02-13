@@ -4,48 +4,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="google-site-verification" content="8-7xYEA9l239e43Cwg-cmG-iSZD784Wx_r-u-c41HBs" />
+  <title>ClipMantra – Pro AI Viral Engine</title>
+  <meta name="description" content="Extract high-impact viral clips from long videos automatically using Gemini 3.0 Flash. Zero-cost, local-first architecture.">
   
-  <!-- Sitemap Link -->
-  <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
-
-  <!-- Basic SEO -->
-  <title>ClipMantra – Free AI Viral Clip Maker | Turn Podcasts & Videos into Reels/Shorts</title>
-  <meta name="description" content="Free AI tool that analyzes your long MP4 video and extracts high-impact viral shorts with auto-captions. No signup, no watermark during beta. Engine v2.5 live.">
-  
-  <!-- Open Graph (social previews) -->
-  <meta property="og:title" content="ClipMantra – Free AI Viral Highlight Engine">
-  <meta property="og:description" content="Upload your podcast/talk/vlog → get ready-to-post Reels, Shorts & TikTok clips with smart captions in minutes. Built for creators.">
-  <meta property="og:image" content="https://clipmantraai.netlify.app/og-image.jpg">
-  <meta property="og:url" content="https://clipmantraai.netlify.app/">
-  <meta property="og:type" content="website">
-
-  <!-- Twitter Cards -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="ClipMantra – Free AI Viral Clip Maker">
-  <meta name="twitter:description" content="Turn long videos into viral shorts automatically. Free during beta.">
-  <meta name="twitter:image" content="https://clipmantraai.netlify.app/og-image.jpg">
-
-  <!-- Icons -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232563eb'/%3E%3Cpath d='M9.5 7.5L16.5 12L9.5 16.5V7.5Z' fill='white'/%3E%3C/svg%3E">
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --blue-glow: rgba(37, 99, 235, 0.15);
-    }
     body {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      scroll-behavior: smooth;
       overflow-x: hidden;
+      background: #020617;
     }
     .mono {
       font-family: 'JetBrains Mono', monospace;
     }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .gradient-blue {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
     /* Custom Scrollbar */
     ::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
     }
     ::-webkit-scrollbar-track {
       background: #020617;
@@ -54,51 +39,30 @@
       background: #1e293b;
       border-radius: 10px;
     }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #334155;
-    }
-    /* Noise Texture */
-    .bg-noise {
+    /* Noise Background Overlay */
+    .bg-noise::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-      opacity: 0.03;
+      opacity: 0.04;
       pointer-events: none;
     }
-    .gradient-blue {
-      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-    }
-    .text-gradient {
-      background: linear-gradient(to right, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .glass-card {
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0) rotate(0); }
-      50% { transform: translateY(-20px) rotate(2deg); }
-    }
-    .animate-float {
-      animation: float 8s ease-in-out infinite;
-    }
   </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
     "react/": "https://esm.sh/react@^19.2.4/",
     "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "mp4-muxer": "https://esm.sh/mp4-muxer@^4.0.1"
+    "vite": "https://esm.sh/vite@^7.3.1"
   }
 }
 </script>
 </head>
-<body class="bg-slate-950 text-slate-200 selection:bg-blue-600/30 selection:text-white">
-  <div class="fixed inset-0 bg-noise z-[9999]"></div>
+<body class="bg-noise">
   <div id="root"></div>
   <script type="module" src="./index.tsx"></script>
 </body>
