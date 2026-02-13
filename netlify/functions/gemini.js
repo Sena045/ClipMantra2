@@ -15,39 +15,31 @@ export const handler = async (event) => {
     if (!apiKey) {
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: "API_KEY not found in environment. Please check Netlify settings." }) 
+        body: JSON.stringify({ error: "API_KEY configuration missing in cloud environment." }) 
       };
     }
 
     const ai = new GoogleGenAI({ apiKey });
     
-    const systemInstruction = `You are a professional viral strategist.
-    Analyze the provided frames from "${filename}" and identify 6-10 unique, high-impact segments.
-    
-    CONSTRAINTS:
-    - Return exactly between 6 and 10 segments.
-    - Each segment duration must be 15-60 seconds.
-    - Strategy should follow ${language} cultural trends.
-    - Format: Strict JSON array.`;
-
-    const contents = {
-      parts: [
-        { text: "Extract 6-10 viral segments (15-60s) from these visual sequences." },
-        ...frames.map((f) => ({
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: f.split(',')[1] 
-          }
-        }))
-      ]
-    };
-
+    // Using gemini-3-flash-preview as it is faster and more capable than 1.5-flash.
+    // Setting thinkingBudget: 0 to ensure the function completes within the Netlify 10s timeout limit.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents,
+      contents: {
+        parts: [
+          { text: `Viral Content Analysis for: ${filename}. Identify 6-10 highly engaging clips (15-60s each) using ${language} strategy. Return strictly as a JSON array.` },
+          ...frames.map((f) => ({
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: f.split(',')[1] 
+            }
+          }))
+        ]
+      },
       config: {
-        systemInstruction,
+        systemInstruction: "You are a world-class social media viral growth expert. Your task is to analyze video frames and pinpoint the exact moments that will perform best on TikTok, Reels, and Shorts. Focus on high-emotion hooks, controversial statements, or visually stunning transitions.",
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -55,11 +47,11 @@ export const handler = async (event) => {
             properties: {
               start: { type: Type.STRING, description: "Start (MM:SS)" },
               end: { type: Type.STRING, description: "End (MM:SS)" },
-              hook: { type: Type.STRING, description: "Engagement Title" },
-              caption: { type: Type.STRING, description: "Viral Caption & Tags" },
-              score: { type: Type.NUMBER, description: "Potential 0-100" },
-              reasoning: { type: Type.STRING, description: "Hook reasoning" },
-              duration: { type: Type.STRING, description: "Duration in seconds" }
+              hook: { type: Type.STRING, description: "Viral Headline" },
+              caption: { type: Type.STRING, description: "High-retention caption" },
+              score: { type: Type.NUMBER, description: "Viral Score (0-100)" },
+              reasoning: { type: Type.STRING, description: "The psychological 'why' behind this clip" },
+              duration: { type: Type.STRING, description: "Clip length in seconds" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
           }
@@ -70,17 +62,25 @@ export const handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
+        "Content-Type": "application/json"
       },
       body: response.text
     };
 
   } catch (error) {
-    console.error("Gemini Lambda Error:", error);
+    console.error("Cloud Engine Error:", error);
+    
+    // Check for common errors
+    let status = 500;
+    let message = error.message || "The AI engine encountered a processing error.";
+    
+    if (message.includes("quota")) {
+      message = "API Quota exceeded. Please try again in a minute.";
+    }
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message || "Failed to process video frames." })
+      statusCode: status,
+      body: JSON.stringify({ error: message })
     };
   }
 };
