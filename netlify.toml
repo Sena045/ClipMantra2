@@ -1,0 +1,8 @@
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = []
+  included_files = ["node_modules/@google/genai/**"]
+
+[build]
+  command = "npm run build"
+  publish = "dist"

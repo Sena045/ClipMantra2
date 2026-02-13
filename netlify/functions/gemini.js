@@ -1,50 +1,50 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event) => {
+  // CORS Headers
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json"
+  };
+
   try {
-    // Handle CORS preflight
     if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "Content-Type",
-          "Access-Control-Allow-Methods": "POST, OPTIONS"
-        }
-      };
+      return { statusCode: 204, headers };
     }
 
     if (event.httpMethod !== "POST") {
       return { 
-        statusCode: 405,
-        body: JSON.stringify({ error: "Method Not Allowed" })
+        statusCode: 405, 
+        headers,
+        body: JSON.stringify({ error: "Method Not Allowed" }) 
       };
     }
 
     const body = JSON.parse(event.body || "{}");
     const { filename, language, frames = [] } = body;
 
-    // Limit to 3 frames to avoid Netlify payload limits (6MB) and timeout (10s)
+    // Use up to 3 frames to stay within Netlify's 6MB payload limit and processing time
     const limitedFrames = Array.isArray(frames) ? frames.slice(0, 3) : [];
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
       return {
         statusCode: 500,
-        headers: { "Access-Control-Allow-Origin": "*" },
-        body: JSON.stringify({ error: "Missing API_KEY in environment. Set it in Netlify settings." })
+        headers,
+        body: JSON.stringify({ error: "API_KEY is missing. Check Netlify Environment Variables." })
       };
     }
 
-    // Initialize the AI client
     const ai = new GoogleGenAI({ apiKey });
 
-    // Use gemini-3-flash-preview for high performance viral analysis
+    // Using gemini-3-flash-preview for the best balance of speed and logic
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
-          { text: `Analyze these frames from "${filename}" and identify 3 high-impact viral segments optimized for ${language}. Return exactly 3 segments as a JSON array.` },
+          { text: `Analyze these frames from "${filename}" and identify 3 high-impact viral segments for ${language}. Output strictly a JSON array.` },
           ...limitedFrames.map((f) => ({
             inlineData: {
               mimeType: "image/jpeg",
@@ -54,21 +54,20 @@ export const handler = async (event) => {
         ]
       },
       config: {
-        systemInstruction: "You are a world-class viral content strategist. Pinpoint high-retention moments and provide actionable metadata for TikTok/Reels. Return strictly JSON.",
+        systemInstruction: "You are a viral strategy expert. Detect high-energy moments. Return ONLY a JSON array of 3 objects.",
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              start: { type: Type.STRING, description: "Start (MM:SS)" },
-              end: { type: Type.STRING, description: "End (MM:SS)" },
-              hook: { type: Type.STRING, description: "Viral Headline" },
-              caption: { type: Type.STRING, description: "High-retention caption" },
-              score: { type: Type.NUMBER, description: "Viral Score (0-100)" },
-              reasoning: { type: Type.STRING, description: "Psychological hook reasoning" },
-              duration: { type: Type.STRING, description: "Duration in seconds" }
+              start: { type: Type.STRING },
+              end: { type: Type.STRING },
+              hook: { type: Type.STRING },
+              caption: { type: Type.STRING },
+              score: { type: Type.NUMBER },
+              reasoning: { type: Type.STRING },
+              duration: { type: Type.STRING }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
           }
@@ -78,18 +77,15 @@ export const handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { 
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json"
-      },
+      headers,
       body: response.text
     };
   } catch (error) {
-    console.error("Function Error:", error);
+    console.error("Cloud Error:", error);
     return {
       statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
-      body: JSON.stringify({ error: error.message || "Unknown error during AI processing." })
+      headers,
+      body: JSON.stringify({ error: error.message || "AI Analysis Failed" })
     };
   }
 };
