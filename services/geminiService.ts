@@ -4,7 +4,7 @@ import { Clip, LanguagePreference } from "../types.ts";
 
 /**
  * Uses Gemini to analyze video data and suggest viral clips.
- * Using gemini-flash-lite-latest for maximum free-tier quota and reliability.
+ * Optimized for high-retention, narrative-driven segments (30-60s).
  */
 export const generateViralShorts = async (
   context: string, 
@@ -13,32 +13,23 @@ export const generateViralShorts = async (
 ): Promise<Clip[]> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const systemInstruction = `You are an elite Short-Form Content Architect. Your mission is to extract high-value, longer-form segments from raw footage that maximize watch time and user attraction.
+  const systemInstruction = `You are a World-Class Short-Form Content Strategist. Your goal is to identify segments from raw video footage that maximize "Watch Time" and "Engagement Rate".
 
-  - Language Output: ${language}.
-  - Core Strategy: Narrative Retention (Story Arcs, Deep Value Dives, Emotional Payoffs).
+  - Language: ${language}.
+  - Target Platform: TikTok, Reels, YouTube Shorts.
+  - Core Strategy: The "Golden Minute" (30-60 seconds of high-value narrative).
 
-  CRITICAL ENGAGEMENT DIRECTIVES:
-  1. DURATION TARGET: Aim for clips between 30 to 60 seconds. Longer clips are preferred if they contain a complete thought, a full tutorial step, or a dramatic build-up.
-  2. hook (The Bait): 
-     - Must be a "Mental Loop" or "High-Stakes Question".
-     - Examples: "The reason 99% of people fail at...", "I spent 100 hours learning this so you don't have to...", "This one shift changed everything."
-     - Max 7 words. Use aggressive, high-contrast wording.
-  
-  3. caption (The Retention Post):
-     - Focus on the "Transformation" or "The Secret".
-     - Line 1: The "Punch".
-     - Line 2-4: Deep dive bullet points or a compelling "Why".
-     - Include 3-5 trending hashtags.
-  
-  4. reasoning (The Viral Logic):
-     - Identify "Long-Form Triggers": (e.g., "Educational Depth", "Slow-Burn Suspense", "In-Depth Tutorial", "Complex Storytelling").
-     - Explain why a longer duration is necessary for this specific moment to land with impact.
+  CLIP EXTRACTION GUIDELINES:
+  1. DURATION: Prioritize segments between 30 and 60 seconds. We want complete "Value Loops" or "Story Beats".
+  2. HOOK: Must be an aggressive pattern interrupt. Use curiosity gaps (e.g., "The mistake costing you...", "This is why you're not..."). Max 7 words.
+  3. CAPTION: Write a high-converting post copy. Use bullet points for value and a "Loop Hook" at the end (e.g., "Wait for the twist at 0:45").
+  4. SCORE: Estimate the probability of going viral (0-100) based on emotional intensity and clarity.
+  5. REASONING: Explain the "Retention Strategy" for this specific clip (e.g., "Value Bomb at 0:20", "Controversial Take", "Emotional Climax").
 
-  - Target: 4-6 high-retention, longer-form highlights.
-  - Output ONLY a valid JSON array of objects.`;
+  - Target: 4 to 6 premium clips.
+  - Output: Strict JSON array of objects only.`;
 
-  const parts: any[] = [{ text: `YouTube Metadata & Visual Context: ${context}` }];
+  const parts: any[] = [{ text: `Context/Metadata: ${context}\nAnalyze these frames to understand the visual rhythm and subject matter.` }];
   
   if (frames && frames.length > 0) {
     frames.forEach((base64) => {
@@ -65,10 +56,10 @@ export const generateViralShorts = async (
             properties: {
               start: { type: Type.STRING, description: "MM:SS format" },
               end: { type: Type.STRING, description: "MM:SS format" },
-              hook: { type: Type.STRING, description: "Ultra-punchy viral headline" },
-              caption: { type: Type.STRING, description: "Engaging social post with retention hooks" },
-              score: { type: Type.NUMBER, description: "0-100 virality probability" },
-              reasoning: { type: Type.STRING, description: "Strategic explanation of why this longer segment attracts users" }
+              hook: { type: Type.STRING, description: "Viral Headline" },
+              caption: { type: Type.STRING, description: "Social Media Caption" },
+              score: { type: Type.NUMBER, description: "Virality Score 0-100" },
+              reasoning: { type: Type.STRING, description: "Retention logic explanation" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning"]
           }
@@ -78,10 +69,10 @@ export const generateViralShorts = async (
 
     return JSON.parse(response.text || "[]");
   } catch (error: any) {
-    console.error("Gemini Generation Error:", error);
-    if (error.message?.includes('429') || error.status === 'RESOURCE_EXHAUSTED') {
-      throw new Error("Free Tier Quota Exceeded. Please wait 60 seconds and try again.");
+    console.error("Gemini AI Error:", error);
+    if (error.message?.includes('429')) {
+      throw new Error("Free Tier Busy. Please retry in 60s.");
     }
-    throw new Error(error instanceof Error ? error.message : "Failed to process content.");
+    throw new Error(error instanceof Error ? error.message : "Analysis failed.");
   }
 };
