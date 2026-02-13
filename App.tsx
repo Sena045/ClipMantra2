@@ -31,7 +31,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-6">
       <div className="px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
-        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mono">Gemini 3.0 Flash • Cloud Engine Active</span>
+        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mono">Cloud Engine Active</span>
       </div>
     </div>
   </header>
@@ -42,8 +42,8 @@ const Footer: React.FC = () => (
     <div className="max-w-7xl mx-auto px-6 space-y-8 opacity-40">
       <p className="text-[10px] font-black uppercase tracking-[0.5em] mono text-white">© {new Date().getFullYear()} CLIPMANTRA FREE REPLICA • PROSECURE ENGINE</p>
       <div className="flex justify-center gap-6">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">v3.1.1 Stable</span>
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Optimized Payload</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">v3.1.3 Lite</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Netlify Verified</span>
       </div>
     </div>
   </footer>
@@ -140,7 +140,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      setStatus('Optimizing Video for Cloud...');
+      setStatus('Optimizing for Cloud...');
       const video = document.createElement('video');
       video.src = videoSrc;
       await new Promise((resolve, reject) => {
@@ -151,23 +151,22 @@ const App: React.FC = () => {
       const frames: string[] = [];
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      // Reduced resolution for faster cloud transmission and staying under 6MB function limits
-      canvas.width = 360;
-      canvas.height = 640;
+      // Ultra-low resolution (200px) to stay within 10s Netlify limit
+      canvas.width = 200;
+      canvas.height = 356;
 
-      // Reduced frame count to stay within 10s Netlify timeout
-      const captureCount = 4;
+      const captureCount = 2; // Only 2 frames for maximum speed
       const interval = video.duration / (captureCount + 1);
       
       for (let i = 1; i <= captureCount; i++) {
-        setStatus(`Capturing Sample ${i} of ${captureCount}...`);
+        setStatus(`Sampling ${i}/${captureCount}...`);
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.4)); // Lower quality for speed
+        frames.push(canvas.toDataURL('image/jpeg', 0.3)); 
       }
 
-      setStatus('AI Analysis in Progress...');
+      setStatus('AI Analysis...');
       const response = await fetch('/.netlify/functions/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,7 +178,10 @@ const App: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Cloud Function Timeout. Please try a shorter video." }));
+        if (response.status === 502) {
+            throw new Error("Cloud Gateway Error: Netlify timed out after 10s. Try a shorter file or simpler video.");
+        }
+        const errorData = await response.json().catch(() => ({ error: "Server encountered an error." }));
         throw new Error(errorData.error || `Server Error: ${response.status}`);
       }
 
@@ -187,7 +189,7 @@ const App: React.FC = () => {
       setClips(results);
     } catch (err: any) {
       console.error("Pipeline Error:", err);
-      setError(err.message || "The AI engine took too long to respond. Try refreshing or using a different clip.");
+      setError(err.message || "Something went wrong. Please check your Netlify logs and environment variables.");
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -211,7 +213,7 @@ const App: React.FC = () => {
             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mono">Cloud Engine Active</span>
           </div>
           <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">CLIPS THAT<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-emerald-400">EXPLODE.</span></h1>
-          <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">High-speed viral analysis. Powered by optimized cloud-side Gemini AI.</p>
+          <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">High-speed viral analysis. Fully optimized for cloud deployment.</p>
         </section>
 
         <section className="max-w-2xl mx-auto space-y-10">
@@ -220,7 +222,7 @@ const App: React.FC = () => {
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             </div>
             <div>
-              <h3 className="font-black text-3xl text-white">{videoFile ? videoFile.name : "Select Video"}</h3>
+              <h3 className="font-black text-3xl text-white">{videoFile ? videoFile.name : "Choose Video"}</h3>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 mono">MP4 • WEBM • MOV</p>
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFile} accept="video/*" className="hidden" />
