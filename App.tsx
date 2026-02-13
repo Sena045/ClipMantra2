@@ -33,7 +33,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-4">
       <div className="px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5">
-        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v4.0 Stable</span>
+        <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Engine v4.5 Pro</span>
       </div>
     </div>
   </header>
@@ -43,7 +43,7 @@ const Footer: React.FC = () => (
   <footer className="py-16 border-t border-white/5 text-center bg-slate-950">
     <div className="max-w-7xl mx-auto px-6 opacity-40">
       <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-slate-500">
-        © {new Date().getFullYear()} CLIPMANTRA REPLICA • OPTIMIZED FOR VIRAL DURATIONS
+        © {new Date().getFullYear()} CLIPMANTRA REPLICA • MAXIMIZED CLIP QUANTITY
       </p>
     </div>
   </footer>
@@ -62,7 +62,7 @@ const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, vid
 
   const start = parseTime(clip.start);
   const end = parseTime(clip.end);
-  const totalDuration = end - start;
+  const totalDuration = Math.max(end - start, 1);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -165,7 +165,7 @@ const App: React.FC = () => {
     setClips([]);
     
     try {
-      setStatus('Scanning Timeline...');
+      setStatus('Deep Scanning Timeline...');
       const video = document.createElement('video');
       video.src = videoSrc;
       await new Promise((resolve) => {
@@ -179,33 +179,35 @@ const App: React.FC = () => {
       canvas.width = 270;
       canvas.height = 480;
 
-      const captureCount = 8; // More frames for better duration estimation
+      // Increased from 8 to 15 to capture more details across the video
+      const captureCount = 15; 
       const interval = video.duration / (captureCount + 1);
       
       for (let i = 1; i <= captureCount; i++) {
-        setStatus(`Indexing Viewport ${i}/${captureCount}...`);
+        setStatus(`Indexing Frames ${i}/${captureCount}...`);
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        frames.push(canvas.toDataURL('image/jpeg', 0.5));
+        frames.push(canvas.toDataURL('image/jpeg', 0.4)); // Lower quality for higher quantity
       }
 
-      setStatus('AI Viral Matching...');
+      setStatus('Finding Viral Hooks...');
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-      const systemInstruction = `You are a viral content strategist for TikTok and Instagram Reels. 
-      Analyze the visual frames of "${videoFile.name}" to identify exactly 3 high-impact clips.
+      const systemInstruction = `You are an expert viral content strategist. 
+      Analyze the visual frames of "${videoFile.name}" to identify at least 6 and up to 10 high-impact viral clips.
       
       CRITICAL REQUIREMENTS:
-      1. Duration: Each clip MUST be between 15 and 60 seconds long for maximum retention.
-      2. Hooks: Identify visual or narrative peaks.
-      3. Language: Respond in ${language}.
-      4. Format: Return ONLY a valid JSON array.
-      5. Reasoning: Explain the viral psychological hook for each clip.`;
+      1. Quantity: You must provide at least 6 unique clips. If the video is long enough, provide up to 10.
+      2. Duration: Each clip MUST be between 15 and 60 seconds long.
+      3. Hooks: Find diverse segments across the entire video.
+      4. Language: Respond in ${language}.
+      5. Format: Return ONLY a valid JSON array.
+      6. Reasoning: Explain the specific psychological hook for each clip.`;
 
       const contents = {
         parts: [
-          { text: "Find 3 viral segments with durations between 15-60s. Return JSON array." },
+          { text: "Find 6-10 unique viral segments (15-60s each). Return JSON array." },
           ...frames.map(data => ({
             inlineData: {
               mimeType: "image/jpeg",
@@ -228,11 +230,11 @@ const App: React.FC = () => {
               properties: {
                 start: { type: Type.STRING, description: "Start time MM:SS" },
                 end: { type: Type.STRING, description: "End time MM:SS" },
-                duration: { type: Type.STRING, description: "Duration in seconds (e.g. '30')" },
-                hook: { type: Type.STRING, description: "High-retention title" },
-                caption: { type: Type.STRING, description: "Instagram/TikTok caption with tags" },
-                score: { type: Type.NUMBER, description: "Viral confidence 0-100" },
-                reasoning: { type: Type.STRING, description: "Psychological explanation of the hook" }
+                duration: { type: Type.STRING, description: "Duration in seconds" },
+                hook: { type: Type.STRING, description: "Viral Title" },
+                caption: { type: Type.STRING, description: "Captions and tags" },
+                score: { type: Type.NUMBER, description: "Viral score 0-100" },
+                reasoning: { type: Type.STRING, description: "Hook explanation" }
               },
               required: ["start", "end", "duration", "hook", "caption", "score", "reasoning"]
             }
@@ -247,7 +249,7 @@ const App: React.FC = () => {
       setClips(parsedClips);
     } catch (err: any) {
       console.error("Pipeline Failure:", err);
-      setError(err.message || "The AI engine is taking a breather. Please try again.");
+      setError(err.message || "The AI engine is working overtime. Please try again.");
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -281,14 +283,14 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Direct Flash Cloud Engine</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest mono">Direct Flash Pro Engine</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
-            LONG FORM TO<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">SHORT-FORM GOLD.</span>
+            MORE CLIPS.<br/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-600 to-emerald-400">MORE GROWTH.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Engineered to find the most engaging 15-60 second segments that guarantee high retention and audience growth.
+            Our upgraded 15-frame analysis now extracts up to 10 viral segments from a single video, maximizing your content output.
           </p>
         </section>
 
@@ -302,7 +304,7 @@ const App: React.FC = () => {
             </div>
             <div>
               <h3 className="font-bold text-xl text-white line-clamp-1">{videoFile ? videoFile.name : "Select Video Source"}</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">UP TO 500MB • OPTIMIZED FOR 9:16 & 16:9</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 mono">AI EXTRACTS UP TO 10 CLIPS</p>
             </div>
             <input type="file" ref={fileInputRef} onChange={onFileChange} accept="video/*" className="hidden" />
           </div>
@@ -325,13 +327,13 @@ const App: React.FC = () => {
                   <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
                   {status}
                 </span>
-              ) : "Identify Viral Loops"}
+              ) : "Extract All Viral Clips"}
             </button>
           </div>
         </section>
 
         {clips.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 pt-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pt-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
             {clips.map((c, idx) => <ClipCard key={idx} clip={c} videoSrc={videoSrc} />)}
           </div>
         )}
@@ -343,7 +345,7 @@ const App: React.FC = () => {
             </div>
             <p className="text-red-400 font-bold tracking-tight">{error}</p>
             <button onClick={generate} className="px-6 py-3 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-colors">
-              Re-scan File
+              Retry Full Scan
             </button>
           </div>
         )}

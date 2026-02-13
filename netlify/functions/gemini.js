@@ -26,11 +26,11 @@ export const handler = async (event) => {
 
     const ai = new GoogleGenAI({ apiKey });
     
-    // Extremely concise instructions to minimize processing time
-    const systemInstruction = `Viral strategist. Analyze frames from "${filename}". Find 3 clips. Return JSON array. Language: ${language}.`;
+    // Increased quantity to 6-10 clips
+    const systemInstruction = `Viral strategist. Analyze frames from "${filename}". Find at least 6 and up to 10 viral clips (15-60s each). Return JSON array. Language: ${language}.`;
 
     const parts = [
-      { text: "Identify viral segments." }
+      { text: "Identify 6-10 unique viral segments." }
     ];
 
     // Add frame data
@@ -44,12 +44,12 @@ export const handler = async (event) => {
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', // Fastest model available
+      model: 'gemini-3-flash-preview', 
       contents: { parts },
       config: {
         systemInstruction,
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 }, // Disable thinking for speed
+        thinkingConfig: { thinkingBudget: 0 }, 
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -60,9 +60,10 @@ export const handler = async (event) => {
               hook: { type: Type.STRING, description: "Viral Title" },
               caption: { type: Type.STRING, description: "Caption" },
               score: { type: Type.NUMBER, description: "0-100" },
-              reasoning: { type: Type.STRING, description: "Why it works" }
+              reasoning: { type: Type.STRING, description: "Why it works" },
+              duration: { type: Type.STRING, description: "Seconds" }
             },
-            required: ["start", "end", "hook", "caption", "score", "reasoning"]
+            required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
           }
         }
       }
