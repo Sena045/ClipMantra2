@@ -22,15 +22,24 @@ const App: React.FC = () => {
   useEffect(() => {
     document.documentElement.classList.add('dark');
     const checkApiKey = async () => {
-      const selected = await (window as any).aistudio.hasSelectedApiKey();
-      setHasApiKey(selected);
+      try {
+        const selected = await (window as any).aistudio.hasSelectedApiKey();
+        setHasApiKey(selected);
+      } catch (e) {
+        setHasApiKey(false);
+      }
     };
     checkApiKey();
   }, []);
 
   const handleConnectApiKey = async () => {
-    await (window as any).aistudio.openSelectKey();
-    setHasApiKey(true); // Proceed immediately as per race condition guidelines
+    try {
+      await (window as any).aistudio.openSelectKey();
+      setHasApiKey(true);
+      setError(null);
+    } catch (e) {
+      console.error("Failed to open key selector", e);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,9 +96,9 @@ const App: React.FC = () => {
       setClips(results);
     } catch (err: any) {
       console.error(err);
-      if (err.message === "API_RESET") {
+      if (err.message === "API_RESET" || err.message === "API_KEY_REQUIRED" || err.message.includes("API Key must be set")) {
         setHasApiKey(false);
-        setError("API Session expired. Please reconnect your key.");
+        setError("API authentication failed. Please select a valid Google AI Key.");
       } else if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
         setError("AI Quota Exhausted. The Free Tier is currently busy. Please wait 60 seconds and try again.");
       } else {
@@ -101,28 +110,40 @@ const App: React.FC = () => {
     }
   };
 
+  // While checking, show a minimal loading state
+  if (hasApiKey === null) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   if (hasApiKey === false) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="max-w-md w-full glass-card rounded-[3.5rem] p-12 text-center space-y-10 border-blue-500/20 shadow-2xl shadow-blue-500/10">
-          <div className="w-24 h-24 gradient-blue rounded-[2rem] mx-auto flex items-center justify-center shadow-xl border border-white/10">
+          <div className="w-24 h-24 gradient-blue rounded-[2.5rem] mx-auto flex items-center justify-center shadow-2xl border border-white/10">
             <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           </div>
           <div className="space-y-4">
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Unlock Engine</h1>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Connection Required</h1>
             <p className="text-slate-400 text-sm font-medium leading-relaxed">
-              To use ClipMantra's high-performance AI, you must connect a Google AI Key from a paid GCP project.
+              ClipMantra Pro requires a valid Google AI Studio key to analyze video frames. Select your key to begin.
             </p>
           </div>
           <button 
             onClick={handleConnectApiKey}
-            className="w-full py-6 gradient-blue text-white font-black uppercase tracking-[0.4em] text-[11px] rounded-[2rem] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
+            className="w-full py-6 gradient-blue text-white font-black uppercase tracking-[0.4em] text-[11px] rounded-[2rem] shadow-[0_20px_60px_rgba(37,99,235,0.4)] hover:brightness-110 active:scale-95 transition-all"
           >
-            Connect Google AI
+            Connect AI Engine
           </button>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-            See <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Billing Documentation</a>
-          </p>
+          <div className="space-y-4 pt-4">
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+              Must use a key from a paid GCP project.<br />
+              <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Billing Docs</a>
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -227,12 +248,12 @@ const App: React.FC = () => {
         {error && (
           <div className="max-w-lg mx-auto p-12 glass-card rounded-[3rem] border border-red-500/30 text-red-400 text-sm font-black uppercase tracking-[0.3em] text-center shadow-2xl shadow-red-500/10">
              <div className="mb-4">⚠️ API ALERT</div>
-             {error}
+             <p className="mb-6">{error}</p>
              <button 
-               onClick={handleGenerate} 
-               className="mt-6 block w-full py-3 bg-red-500/10 hover:bg-red-500/20 rounded-xl transition-all text-xs"
+               onClick={error.includes("authentication") ? handleConnectApiKey : handleGenerate} 
+               className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl transition-all text-xs font-black uppercase tracking-widest border border-red-500/20"
              >
-               Retry Analysis
+               {error.includes("authentication") ? "Reconnect Key" : "Retry Analysis"}
              </button>
           </div>
         )}

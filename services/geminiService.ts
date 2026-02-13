@@ -11,8 +11,14 @@ export const generateViralShorts = async (
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    throw new Error("API_KEY_REQUIRED");
+  }
+
   // Create instance right before call to use the most up-to-date runtime injected key
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = `You are a World-Class Short-Form Content Strategist. Your goal is to identify segments from raw video footage that maximize "Watch Time" and "Engagement Rate".
 
@@ -73,9 +79,12 @@ export const generateViralShorts = async (
     return JSON.parse(text.trim());
   } catch (error: any) {
     console.error("Gemini AI Error:", error);
-    if (error.message?.includes('entity was not found')) {
+    
+    // Handle specific API reset errors
+    if (error.message?.includes('entity was not found') || error.message?.includes('API key')) {
        throw new Error("API_RESET");
     }
+    
     if (error.message?.includes('429')) {
       throw new Error("Free Tier Busy. Please retry in 60s.");
     }
