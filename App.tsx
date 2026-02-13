@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 
 // --- Types ---
 interface Clip {
@@ -32,7 +31,7 @@ const Header: React.FC = () => (
     </div>
     <div className="hidden md:flex items-center gap-6">
       <div className="px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5">
-        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mono">Gemini 3.0 Flash • Free Tier Active</span>
+        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.2em] mono">Gemini 3.0 Flash • Cloud Engine Active</span>
       </div>
     </div>
   </header>
@@ -41,10 +40,10 @@ const Header: React.FC = () => (
 const Footer: React.FC = () => (
   <footer className="py-20 border-t border-white/5 text-center bg-slate-950">
     <div className="max-w-7xl mx-auto px-6 space-y-8 opacity-40">
-      <p className="text-[10px] font-black uppercase tracking-[0.5em] mono text-white">© {new Date().getFullYear()} CLIPMANTRA FREE REPLICA • OPEN ENGINE</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.5em] mono text-white">© {new Date().getFullYear()} CLIPMANTRA FREE REPLICA • PROSECURE ENGINE</p>
       <div className="flex justify-center gap-6">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">v3.0.2 Stable</span>
-        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Zero Cost Architecture</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">v3.1.0 Ready</span>
+        <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Netlify Cloud Architecture</span>
       </div>
     </div>
   </footer>
@@ -99,7 +98,7 @@ const ClipCard: React.FC<{ clip: Clip; videoSrc: string | null }> = ({ clip, vid
           <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 italic opacity-80">"{clip.reasoning}"</p>
         </div>
         <div className="flex gap-4 pt-4 border-t border-white/5">
-          <button onClick={() => alert("Simulation: Clip identified and ready for recording.")} className="flex-1 py-4 gradient-blue text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:brightness-110 active:scale-95 transition-all">Download</button>
+          <button onClick={() => alert("Ready: Segment identified for your shorts.")} className="flex-1 py-4 gradient-blue text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:brightness-110 active:scale-95 transition-all">Download</button>
           <button onClick={() => { navigator.clipboard.writeText(clip.caption); alert("Viral Caption Copied!"); }} className="px-6 bg-white/5 text-slate-400 rounded-2xl hover:text-white transition-all border border-white/5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
           </button>
@@ -141,7 +140,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      setStatus('Decoding Visual Frames...');
+      setStatus('Processing Local Video...');
       const video = document.createElement('video');
       video.src = videoSrc;
       await new Promise((resolve, reject) => {
@@ -152,6 +151,7 @@ const App: React.FC = () => {
       const frames: string[] = [];
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+      // Low resolution for faster cloud transmission
       canvas.width = 480;
       canvas.height = 854;
 
@@ -159,54 +159,34 @@ const App: React.FC = () => {
       const interval = video.duration / (captureCount + 1);
       
       for (let i = 1; i <= captureCount; i++) {
-        setStatus(`Frame Extraction (${i}/${captureCount})...`);
+        setStatus(`Analyzing Frame ${i} of ${captureCount}...`);
         video.currentTime = interval * i;
         await new Promise(r => video.onseeked = r);
         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
         frames.push(canvas.toDataURL('image/jpeg', 0.5));
       }
 
-      setStatus('Gemini Free Tier Analysis...');
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const systemInstruction = `You are a viral content analyst. Identify 3-5 high-impact clips from the provided frames. Language: ${language}. Output JSON.`;
-
-      const parts: any[] = [{ text: `Examine frames from ${videoFile.name} and provide viral segments.` }];
-      frames.forEach(f => parts.push({ inlineData: { mimeType: "image/jpeg", data: f.split(',')[1] } }));
-
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: { parts },
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                start: { type: Type.STRING, description: "MM:SS" },
-                end: { type: Type.STRING, description: "MM:SS" },
-                hook: { type: Type.STRING, description: "Catchy Title" },
-                caption: { type: Type.STRING, description: "Viral Caption" },
-                score: { type: Type.NUMBER, description: "Potential 0-100" },
-                reasoning: { type: Type.STRING, description: "Retention logic" }
-              },
-              required: ["start", "end", "hook", "caption", "score", "reasoning"]
-            }
-          }
-        }
+      setStatus('Connecting to Cloud Engine...');
+      const response = await fetch('/.netlify/functions/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: videoFile.name,
+          language,
+          frames
+        })
       });
 
-      const text = response.text;
-      if (!text) throw new Error("The AI engine failed to generate a response.");
-      setClips(JSON.parse(text.trim()));
-    } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes('429')) {
-        setError("AI Rate Limit reached. Please wait 60 seconds and try again.");
-      } else {
-        setError(err.message || "Failed to analyze video. Check your file format.");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Connection to AI Cloud failed." }));
+        throw new Error(errorData.error || `Server Error: ${response.status}`);
       }
+
+      const results = await response.json();
+      setClips(results);
+    } catch (err: any) {
+      console.error("Pipeline Error:", err);
+      setError(err.message || "Failed to analyze video. Try a shorter file or different format.");
     } finally {
       setIsLoading(false);
       setStatus('');
@@ -227,10 +207,10 @@ const App: React.FC = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mono">Engine: Gemini 3.0 Flash Free</span>
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mono">Cloud Engine Active</span>
           </div>
           <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">CLIPS THAT<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-emerald-400">EXPLODE.</span></h1>
-          <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">Zero-cost viral analysis. Upload your video and let the AI find your best moments.</p>
+          <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto">Enterprise-grade viral analysis, zero cost. Powered by secure cloud-side Gemini AI.</p>
         </section>
 
         <section className="max-w-2xl mx-auto space-y-10">
@@ -239,7 +219,7 @@ const App: React.FC = () => {
               <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
             </div>
             <div>
-              <h3 className="font-black text-3xl text-white">{videoFile ? videoFile.name : "Select Video"}</h3>
+              <h3 className="font-black text-3xl text-white">{videoFile ? videoFile.name : "Start Upload"}</h3>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2 mono">MP4 • WEBM • MOV</p>
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFile} accept="video/*" className="hidden" />
@@ -265,7 +245,7 @@ const App: React.FC = () => {
           <div className="max-w-lg mx-auto p-12 glass-card rounded-[3rem] border border-red-500/30 text-red-400 text-sm font-black uppercase tracking-[0.3em] text-center shadow-2xl">
              <div className="mb-4">⚠️ SYSTEM ALERT</div>
              <p className="mb-6 opacity-80 leading-relaxed">{error}</p>
-             <button onClick={generate} className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest border border-red-500/20">Retry Engine</button>
+             <button onClick={generate} className="w-full py-4 bg-red-500/10 hover:bg-red-500/20 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest border border-red-500/20">Retry Pipeline</button>
           </div>
         )}
       </main>
