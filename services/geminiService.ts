@@ -11,6 +11,7 @@ export const generateViralShorts = async (
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
+  // Create instance right before call to use the most up-to-date runtime injected key
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `You are a World-Class Short-Form Content Strategist. Your goal is to identify segments from raw video footage that maximize "Watch Time" and "Engagement Rate".
@@ -22,9 +23,9 @@ export const generateViralShorts = async (
   CLIP EXTRACTION GUIDELINES:
   1. DURATION: Prioritize segments between 30 and 60 seconds. We want complete "Value Loops" or "Story Beats".
   2. HOOK: Must be an aggressive pattern interrupt. Use curiosity gaps (e.g., "The mistake costing you...", "This is why you're not..."). Max 7 words.
-  3. CAPTION: Write a high-converting post copy. Use bullet points for value and a "Loop Hook" at the end (e.g., "Wait for the twist at 0:45").
+  3. CAPTION: Write a high-converting post copy. Use bullet points for value and a "Loop Hook" at the end.
   4. SCORE: Estimate the probability of going viral (0-100) based on emotional intensity and clarity.
-  5. REASONING: Explain the "Retention Strategy" for this specific clip (e.g., "Value Bomb at 0:20", "Controversial Take", "Emotional Climax").
+  5. REASONING: Explain the "Retention Strategy" (e.g., "Value Bomb at 0:20", "Controversial Take").
 
   - Target: 4 to 6 premium clips.
   - Output: Strict JSON array of objects only.`;
@@ -44,7 +45,7 @@ export const generateViralShorts = async (
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: { parts },
       config: {
         systemInstruction,
@@ -72,6 +73,9 @@ export const generateViralShorts = async (
     return JSON.parse(text.trim());
   } catch (error: any) {
     console.error("Gemini AI Error:", error);
+    if (error.message?.includes('entity was not found')) {
+       throw new Error("API_RESET");
+    }
     if (error.message?.includes('429')) {
       throw new Error("Free Tier Busy. Please retry in 60s.");
     }

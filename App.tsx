@@ -7,6 +7,7 @@ import { generateViralShorts } from './services/geminiService.ts';
 import { Clip, LanguagePreference } from './types.ts';
 
 const App: React.FC = () => {
+  const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [language, setLanguage] = useState<LanguagePreference>(LanguagePreference.ENGLISH);
   const [clips, setClips] = useState<Clip[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +21,17 @@ const App: React.FC = () => {
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
+    const checkApiKey = async () => {
+      const selected = await (window as any).aistudio.hasSelectedApiKey();
+      setHasApiKey(selected);
+    };
+    checkApiKey();
   }, []);
+
+  const handleConnectApiKey = async () => {
+    await (window as any).aistudio.openSelectKey();
+    setHasApiKey(true); // Proceed immediately as per race condition guidelines
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,7 +87,10 @@ const App: React.FC = () => {
       setClips(results);
     } catch (err: any) {
       console.error(err);
-      if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
+      if (err.message === "API_RESET") {
+        setHasApiKey(false);
+        setError("API Session expired. Please reconnect your key.");
+      } else if (err.message.includes("429") || err.message.toLowerCase().includes("quota")) {
         setError("AI Quota Exhausted. The Free Tier is currently busy. Please wait 60 seconds and try again.");
       } else {
         setError(err.message || "AI Analysis Aborted.");
@@ -87,23 +101,48 @@ const App: React.FC = () => {
     }
   };
 
+  if (hasApiKey === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+        <div className="max-w-md w-full glass-card rounded-[3.5rem] p-12 text-center space-y-10 border-blue-500/20 shadow-2xl shadow-blue-500/10">
+          <div className="w-24 h-24 gradient-blue rounded-[2rem] mx-auto flex items-center justify-center shadow-xl border border-white/10">
+            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <div className="space-y-4">
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Unlock Engine</h1>
+            <p className="text-slate-400 text-sm font-medium leading-relaxed">
+              To use ClipMantra's high-performance AI, you must connect a Google AI Key from a paid GCP project.
+            </p>
+          </div>
+          <button 
+            onClick={handleConnectApiKey}
+            className="w-full py-6 gradient-blue text-white font-black uppercase tracking-[0.4em] text-[11px] rounded-[2rem] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
+          >
+            Connect Google AI
+          </button>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+            See <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Billing Documentation</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-slate-950">
-      {/* Background Decorative Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full"></div>
       
       <Header darkMode={isDarkMode} toggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
 
       <main className="max-w-7xl mx-auto px-6 pt-24 pb-32 space-y-32 relative z-10">
-        {/* Dynamic Hero Section */}
         <section className="text-center space-y-8 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-3 px-5 py-2 glass-card rounded-full border border-white/10 shadow-lg">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Flash Lite Engine Live</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Gemini 3.0 Pro Active</span>
           </div>
           
           <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">
@@ -116,7 +155,6 @@ const App: React.FC = () => {
           </p>
         </section>
 
-        {/* Studio Upload Section */}
         <section className="max-w-2xl mx-auto space-y-10">
           <div 
             onClick={() => fileInputRef.current?.click()}
@@ -171,7 +209,6 @@ const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Results Showcase */}
         {clips.length > 0 && (
           <div className="space-y-16 animate-in slide-in-from-bottom-10 duration-1000">
             <div className="flex flex-col md:flex-row md:items-center gap-6 text-center md:text-left">
@@ -187,7 +224,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Error Notification */}
         {error && (
           <div className="max-w-lg mx-auto p-12 glass-card rounded-[3rem] border border-red-500/30 text-red-400 text-sm font-black uppercase tracking-[0.3em] text-center shadow-2xl shadow-red-500/10">
              <div className="mb-4">⚠️ API ALERT</div>

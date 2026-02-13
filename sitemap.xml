@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://clipmantraai.netlify.app/</loc>
-    <lastmod>2026-02-13</lastmod>  <!-- today's date in YYYY-MM-DD format -->
-    <changefreq>weekly</changefreq>  <!-- or daily if you're updating often -->
-    <priority>1.0</priority>
-  </url>
-</urlset>
