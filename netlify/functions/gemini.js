@@ -17,15 +17,15 @@ export const handler = async (event) => {
     if (!apiKey) {
       return { 
         statusCode: 500, 
-        body: JSON.stringify({ error: "Server-side API_KEY is missing in environment variables." }) 
+        body: JSON.stringify({ error: "Server-side API_KEY is missing in Netlify environment variables." }) 
       };
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const systemInstruction = `You are a viral content strategist. Analyze the visual frames of a video to identify 3-5 high-impact clips suitable for TikTok, Reels, or Shorts. Focus on high-retention "hooks" and emotional peaks. Output MUST be a valid JSON array. Language preference: ${language}.`;
+    const systemInstruction = `You are a viral content strategist. Analyze the provided frames from a video to identify 3-5 high-impact clips for social media. Focus on high-retention "hooks". Output MUST be a valid JSON array. Language preference: ${language}.`;
 
     const parts = [
-      { text: `Analyze the following frames from the video "${filename}" and identify segments that have high viral potential.` }
+      { text: `Analyze these frames from "${filename}" and identify viral segments.` }
     ];
 
     // Add frame data to parts
@@ -33,7 +33,7 @@ export const handler = async (event) => {
       parts.push({
         inlineData: {
           mimeType: "image/jpeg",
-          data: f.split(',')[1] // Strip data:image/jpeg;base64,
+          data: f.split(',')[1] 
         }
       });
     });
@@ -44,17 +44,19 @@ export const handler = async (event) => {
       config: {
         systemInstruction,
         responseMimeType: "application/json",
+        // Disable thinking to prevent Netlify 10s function timeout (502 errors)
+        thinkingConfig: { thinkingBudget: 0 }, 
         responseSchema: {
           type: Type.ARRAY,
           items: {
             type: Type.OBJECT,
             properties: {
-              start: { type: Type.STRING, description: "Start time in MM:SS" },
-              end: { type: Type.STRING, description: "End time in MM:SS" },
-              hook: { type: Type.STRING, description: "A catchy viral headline for the clip" },
-              caption: { type: Type.STRING, description: "Optimized social media caption with hashtags" },
-              score: { type: Type.NUMBER, description: "Viral potential score from 0-100" },
-              reasoning: { type: Type.STRING, description: "Why this clip will perform well (retention logic)" }
+              start: { type: Type.STRING, description: "Start time (MM:SS)" },
+              end: { type: Type.STRING, description: "End time (MM:SS)" },
+              hook: { type: Type.STRING, description: "Viral Headline" },
+              caption: { type: Type.STRING, description: "Social Caption" },
+              score: { type: Type.NUMBER, description: "Viral Score 0-100" },
+              reasoning: { type: Type.STRING, description: "Logic for retention" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning"]
           }
