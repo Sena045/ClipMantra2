@@ -88,7 +88,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden bg-slate-950">
       {/* Background Decorative Elements */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full"></div>
@@ -98,12 +98,12 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-6 pt-24 pb-32 space-y-32 relative z-10">
         {/* Dynamic Hero Section */}
         <section className="text-center space-y-8 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-3 px-5 py-2 glass-card rounded-full border border-white/10 shadow-lg animate-fade-in">
+          <div className="inline-flex items-center gap-3 px-5 py-2 glass-card rounded-full border border-white/10 shadow-lg">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Engine v2.5 Live</span>
+            <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono">Flash Lite Engine Live</span>
           </div>
           
           <h1 className="text-7xl md:text-9xl font-black tracking-[-0.07em] leading-[0.85] text-white">
@@ -111,7 +111,7 @@ const App: React.FC = () => {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-indigo-400 to-blue-600">CONVERT.</span>
           </h1>
           <p className="text-xl md:text-2xl text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            Engineered for creators. Our AI dissects your footage using multimodal analysis to find high-impact 
+            Engineered for creators. Our AI dissects your footage to find high-impact 
             moments with professional precision.
           </p>
         </section>
@@ -136,7 +136,7 @@ const App: React.FC = () => {
                 {videoFile ? videoFile.name : "Start Analyzing"}
               </h3>
               <p className="text-[12px] font-bold text-slate-500 uppercase tracking-[0.3em] mono">
-                PRO RES • H.264 • WEBM
+                MP4 • WEBM • MOV
               </p>
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="video/*" className="hidden" />

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const Footer: React.FC = () => {
@@ -27,6 +28,21 @@ const Footer: React.FC = () => {
                 className="w-44 h-44 rounded-xl"
               />
             </div>
+          </div>
+
+          <div className="text-[11px] text-slate-400 leading-relaxed font-medium bg-white/5 p-6 rounded-[2rem] border border-white/5">
+            <p>
+              <strong className="text-white">Outside India / NRIs abroad?</strong><br />
+              Send via 
+              <a href="https://wise.com/gb/send-money/send-money-to-india" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline px-0.5">Wise</a>, 
+              <a href="https://www.remitly.com/us/en/india" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline px-0.5">Remitly</a>, 
+              <a href="https://www.xoom.com/india/send-money" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline px-0.5">Xoom</a>, 
+              or 
+              <a href="https://www.westernunion.com/us/en/send-money-to-india.html" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline px-0.5">Western Union</a> — 
+              enter this UPI ID + your name.
+              <br />
+              <span className="text-slate-300 mt-2 block">Low fees, fast (often instant) in INR. Thank you for fueling the free engine! 🚀</span>
+            </p>
           </div>
 
           <div className="space-y-2">

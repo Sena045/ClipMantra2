@@ -11,33 +11,31 @@ export const generateViralShorts = async (
   language: LanguagePreference,
   frames?: string[]
 ): Promise<Clip[]> => {
-  // Initialize the Gemini API client directly with the environment variable.
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  const systemInstruction = `You are a World-Class Short-Form Content Strategist specializing in YouTube Shorts, TikTok, and Instagram Reels. 
-  Your goal is to extract the most psychologically compelling segments from a video.
+  const systemInstruction = `You are an elite Short-Form Content Architect. Your mission is to extract high-value, longer-form segments from raw footage that maximize watch time and user attraction.
 
   - Language Output: ${language}.
-  - Target Audience: High-engagement viewers who value high-density information or high-emotion storytelling.
+  - Core Strategy: Narrative Retention (Story Arcs, Deep Value Dives, Emotional Payoffs).
 
-  CRITICAL GUIDELINES FOR WORDING:
-  1. hook (Headline): 
-     - Use "Pattern Interrupts". 
-     - Create a "Curiosity Gap" (e.g., "The exact moment everything changed..." or "Why 99% of creators fail at this...").
-     - Keep it under 10 words. Bold, punchy, and aggressive.
-     - NO generic titles like "Tips for success".
+  CRITICAL ENGAGEMENT DIRECTIVES:
+  1. DURATION TARGET: Aim for clips between 30 to 60 seconds. Longer clips are preferred if they contain a complete thought, a full tutorial step, or a dramatic build-up.
+  2. hook (The Bait): 
+     - Must be a "Mental Loop" or "High-Stakes Question".
+     - Examples: "The reason 99% of people fail at...", "I spent 100 hours learning this so you don't have to...", "This one shift changed everything."
+     - Max 7 words. Use aggressive, high-contrast wording.
   
-  2. caption (Social Post):
-     - Start with a "scroll-stopper" first line.
-     - Use a "Problem-Agitate-Solution" (PAS) or "Curiosity Loop" structure.
-     - Include 3-5 high-traffic, niche-relevant hashtags.
-     - Use emojis sparingly but effectively to emphasize points.
+  3. caption (The Retention Post):
+     - Focus on the "Transformation" or "The Secret".
+     - Line 1: The "Punch".
+     - Line 2-4: Deep dive bullet points or a compelling "Why".
+     - Include 3-5 trending hashtags.
   
-  3. reasoning (Strategy):
-     - Explain the "Retention Trigger" (e.g., "High-stakes revelation," "Conflict resolution," or "Unexpected visual change").
-     - Why would someone watch this 3 times?
+  4. reasoning (The Viral Logic):
+     - Identify "Long-Form Triggers": (e.g., "Educational Depth", "Slow-Burn Suspense", "In-Depth Tutorial", "Complex Storytelling").
+     - Explain why a longer duration is necessary for this specific moment to land with impact.
 
-  - Identify 5-10 elite segments.
+  - Target: 4-6 high-retention, longer-form highlights.
   - Output ONLY a valid JSON array of objects.`;
 
   const parts: any[] = [{ text: `YouTube Metadata & Visual Context: ${context}` }];
@@ -54,8 +52,6 @@ export const generateViralShorts = async (
   }
 
   try {
-    // Switched to 'gemini-flash-lite-latest' to resolve the "Quota Exhausted" (429) error.
-    // Flash Lite is highly optimized for high-volume free tier usage.
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: "gemini-flash-lite-latest",
       contents: { parts },
@@ -72,7 +68,7 @@ export const generateViralShorts = async (
               hook: { type: Type.STRING, description: "Ultra-punchy viral headline" },
               caption: { type: Type.STRING, description: "Engaging social post with retention hooks" },
               score: { type: Type.NUMBER, description: "0-100 virality probability" },
-              reasoning: { type: Type.STRING, description: "Strategic explanation of retention" }
+              reasoning: { type: Type.STRING, description: "Strategic explanation of why this longer segment attracts users" }
             },
             required: ["start", "end", "hook", "caption", "score", "reasoning"]
           }
@@ -83,7 +79,6 @@ export const generateViralShorts = async (
     return JSON.parse(response.text || "[]");
   } catch (error: any) {
     console.error("Gemini Generation Error:", error);
-    // Specifically handle the 429 error message if it comes back
     if (error.message?.includes('429') || error.status === 'RESOURCE_EXHAUSTED') {
       throw new Error("Free Tier Quota Exceeded. Please wait 60 seconds and try again.");
     }
