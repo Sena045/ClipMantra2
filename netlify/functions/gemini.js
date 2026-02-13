@@ -1,7 +1,6 @@
+const { GoogleGenAI, Type } = require("@google/genai");
 
-import { GoogleGenAI, Type } from "@google/genai";
-
-export const handler = async (event) => {
+exports.handler = async function (event) {
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -35,13 +34,13 @@ export const handler = async (event) => {
     // Initialize the AI client
     const ai = new GoogleGenAI({ apiKey });
     
-    // Use gemini-flash-lite-latest for the fastest possible response to avoid Netlify timeouts
-    // We remove thinkingConfig entirely to prioritize immediate output generation.
+    // Using gemini-3-flash-preview for high quality viral analysis.
+    // We set thinkingBudget to 0 to minimize latency for the serverless function.
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest', 
+      model: 'gemini-3-flash-preview', 
       contents: {
         parts: [
-          { text: `Analyze these frames from "${filename}" and identify 6-10 viral segments (15-60s each). Use a ${language} content strategy.` },
+          { text: `Viral Content Analysis for: ${filename}. Identify 6-10 highly engaging clips (15-60s each) using ${language} strategy. Return strictly as a JSON array.` },
           ...frames.map((f) => ({
             inlineData: {
               mimeType: "image/jpeg",
@@ -53,6 +52,7 @@ export const handler = async (event) => {
       config: {
         systemInstruction: "You are a viral growth expert. Extract 6-10 viral clips. Return only a JSON array of objects with the specified schema. No markdown, no extra text.",
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -93,7 +93,10 @@ export const handler = async (event) => {
 
     return {
       statusCode: 500,
-      headers: { "Access-Control-Allow-Origin": "*" },
+      headers: { 
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({ error: message })
     };
   }
