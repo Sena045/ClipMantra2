@@ -1,25 +1,12 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ClipCard from './components/ClipCard';
 import { Clip, LanguagePreference } from './types';
 import { generateViralShorts } from './services/geminiService';
 
-declare global {
-  /* Define the AIStudio interface to ensure compatibility with environmental definitions and prevent property mismatch */
-  interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-  }
-
-  interface Window {
-    aistudio?: AIStudio;
-  }
-}
-
 const App: React.FC = () => {
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [clips, setClips] = useState<Clip[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -28,30 +15,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const checkKey = async () => {
-      try {
-        if (window.aistudio) {
-          const selected = await window.aistudio.hasSelectedApiKey();
-          setHasKey(selected);
-        } else {
-          setHasKey(false);
-        }
-      } catch (e) {
-        setHasKey(false);
-      }
-    };
-    checkKey();
-  }, []);
-
-  const handleConnectKey = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // Assume success to prevent race conditions as per guidelines
-      setHasKey(true);
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,77 +115,12 @@ const App: React.FC = () => {
       
       setClips(results);
     } catch (err: any) {
-      if (err.message.includes("not found")) {
-        setHasKey(false);
-      }
       setError(err.message || "Viral Engine encountered a latency error. Please retry.");
     } finally {
       setLoading(false);
       setStatus('');
     }
   };
-
-  if (hasKey === false) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
-        <div className="absolute inset-0 bg-blue-600/5 blur-[120px] pointer-events-none"></div>
-        
-        {/* Animated Icon */}
-        <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl shadow-2xl flex items-center justify-center border border-white/10 animate-bounce mb-12">
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-          </svg>
-        </div>
-
-        <div className="space-y-10 max-w-lg">
-          <h1 className="text-5xl font-black text-white tracking-tighter uppercase italic animate-in fade-in slide-in-from-top-4">
-            Unlock the <span className="text-blue-500">Engine.</span>
-          </h1>
-          
-          <div className="space-y-6">
-            <p className="text-slate-200 text-lg font-medium leading-relaxed">
-              To use ClipMantra in a browser, you must select a Gemini API key from a paid GCP project. This ensures high-speed processing without limits.
-            </p>
-            
-            <p className="text-slate-400 text-sm font-medium leading-relaxed italic border-l-2 border-blue-500/30 pl-6 text-left">
-              Google requires a project with billing attached, but your usage remains <span className="text-white font-bold">$0.00</span> under the Gemini Flash Free Tier limits (15 RPM).
-            </p>
-          </div>
-
-          <div className="pt-8 space-y-6">
-            <div className="space-y-2">
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">
-                Zero Subscriptions • Zero Platform Fees
-              </p>
-              <div className="h-px w-20 bg-white/10 mx-auto"></div>
-            </div>
-            
-            <div className="flex flex-col items-center gap-6">
-              <a 
-                href="https://ai.google.dev/gemini-api/docs/billing" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="group flex items-center gap-2 text-blue-500 text-xs font-black underline uppercase tracking-widest hover:text-blue-400 transition-colors"
-              >
-                See Billing Documentation
-                <svg className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-              
-              <button 
-                onClick={handleConnectKey}
-                className="bg-white text-slate-950 px-16 py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-[0_0_50px_-10px_rgba(255,255,255,0.2)] hover:bg-blue-600 hover:text-white hover:scale-[1.05] transition-all duration-500 active:scale-95 flex items-center gap-3"
-              >
-                Select Project Key
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-blue-500/30 font-sans flex flex-col">
@@ -232,14 +130,14 @@ const App: React.FC = () => {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-96 bg-blue-600/5 blur-[120px] pointer-events-none"></div>
           
           <div className="space-y-6 relative z-10">
-            <div className="inline-block px-4 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 mb-4">
-              <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mono italic">Gemini 3.0 Flash Engine Active</span>
+            <div className="inline-block px-4 py-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/5 mb-4">
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] mono italic">Gemini Flash Free Tier Active</span>
             </div>
             <h1 className="text-7xl md:text-9xl font-black text-white tracking-tighter uppercase italic leading-[0.85] animate-in fade-in slide-in-from-top-4 duration-1000">
               Content <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-500">Decoded.</span>
             </h1>
             <p className="text-slate-400 max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
-              Upload footage. Our AI psychologist identifies the high-retention segments mathematically destined to trend.
+              Upload footage. Our AI psychologist identifies the high-retention segments mathematically destined to trend. No subscription required.
             </p>
           </div>
           
@@ -279,6 +177,10 @@ const App: React.FC = () => {
                 </span>
               </button>
             </div>
+            
+            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
+              100% Free • No API Key Required • Browser-Based Extraction
+            </p>
           </div>
         </section>
 
