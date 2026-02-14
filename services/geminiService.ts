@@ -7,7 +7,7 @@ export const generateViralShorts = async (
   language: LanguagePreference, 
   frames: string[]
 ): Promise<Clip[]> => {
-  /* Use the pre-configured API key from environment */
+  /* Always create instance inside the function to pick up latest process.env.API_KEY */
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `Act as a Viral Content Psychologist.
@@ -59,6 +59,12 @@ export const generateViralShorts = async (
     return JSON.parse(jsonStr.trim());
   } catch (error: any) {
     console.error("Gemini Engine Error:", error);
+    
+    // Check if the key is invalid or project missing
+    if (error.message?.includes('entity was not found') || error.message?.includes('API_KEY_INVALID')) {
+       throw new Error("Requested entity was not found. Please re-select a valid API key from a paid GCP project.");
+    }
+    
     if (error.message?.includes('429') || error.message?.includes('capacity')) {
        throw new Error("Free Tier capacity reached. Please wait 1 minute before retrying.");
     }

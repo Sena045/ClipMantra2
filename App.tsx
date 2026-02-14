@@ -137,7 +137,7 @@ const App: React.FC = () => {
               Content <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-indigo-500">Decoded.</span>
             </h1>
             <p className="text-slate-400 max-w-2xl mx-auto text-lg md:text-xl font-medium leading-relaxed">
-              Upload footage. Our AI psychologist identifies the high-retention segments mathematically destined to trend. No subscription required.
+              Upload footage. Our AI psychologist identifies the high-retention segments mathematically destined to trend. No subscription, no credit card required.
             </p>
           </div>
           
@@ -179,7 +179,7 @@ const App: React.FC = () => {
             </div>
             
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
-              100% Free • No API Key Required • Browser-Based Extraction
+              100% Free • Unlimited Scan Potential • Browser-Based Extraction
             </p>
           </div>
         </section>
