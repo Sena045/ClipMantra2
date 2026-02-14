@@ -1,7 +1,7 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event) => {
-  // CORS Headers
   const headers = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type",
@@ -10,42 +10,23 @@ export const handler = async (event) => {
   };
 
   try {
-    if (event.httpMethod === "OPTIONS") {
-      return { statusCode: 204, headers };
-    }
-
-    if (event.httpMethod !== "POST") {
-      return { 
-        statusCode: 405, 
-        headers,
-        body: JSON.stringify({ error: "Method Not Allowed" }) 
-      };
-    }
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
+    if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
 
     const body = JSON.parse(event.body || "{}");
     const { filename, language, frames = [] } = body;
 
-    // Use up to 3 frames to stay within Netlify's 6MB payload limit and processing time
-    const limitedFrames = Array.isArray(frames) ? frames.slice(0, 3) : [];
-
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "API_KEY is missing. Check Netlify Environment Variables." })
-      };
-    }
+    if (!apiKey) return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing API Configuration" }) };
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Using gemini-3-flash-preview for the best balance of speed and logic
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
-          { text: `Analyze these frames from "${filename}" and identify 3 high-impact viral segments for ${language}. Output strictly a JSON array.` },
-          ...limitedFrames.map((f) => ({
+          { text: `Scan: "${filename}" (${language}). Extract 8 high-impact segments (30-45s each). Return JSON.` },
+          ...frames.slice(0, 8).map((f) => ({
             inlineData: {
               mimeType: "image/jpeg",
               data: f.split(",")[1]
@@ -54,7 +35,7 @@ export const handler = async (event) => {
         ]
       },
       config: {
-        systemInstruction: "You are a viral strategy expert. Detect high-energy moments. Return ONLY a JSON array of 3 objects.",
+        systemInstruction: "Professional Video Psychologist. Return JSON array of 8 segments.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -75,17 +56,8 @@ export const handler = async (event) => {
       }
     });
 
-    return {
-      statusCode: 200,
-      headers,
-      body: response.text
-    };
+    return { statusCode: 200, headers, body: response.text };
   } catch (error) {
-    console.error("Cloud Error:", error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message || "AI Analysis Failed" })
-    };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: "AI Engine capacity reached." }) };
   }
 };

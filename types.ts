@@ -5,7 +5,8 @@ export interface Clip {
   hook: string;
   caption: string;
   score: number;
-  reasoning?: string;
+  reasoning: string;
+  duration: string;
 }
 
 export interface MusicTrack {
