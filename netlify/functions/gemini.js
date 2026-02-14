@@ -19,9 +19,11 @@ export const handler = async (event) => {
     const apiKey = process.env.API_KEY;
     if (!apiKey) return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing API Configuration" }) };
 
+    /* Always create a new instance right before making an API call */
     const ai = new GoogleGenAI({ apiKey });
 
     const response = await ai.models.generateContent({
+      /* Using gemini-3-flash-preview to match the UI's 'Flash Engine' description */
       model: "gemini-3-flash-preview",
       contents: {
         parts: [
@@ -56,6 +58,7 @@ export const handler = async (event) => {
       }
     });
 
+    /* Use response.text directly as it is a getter */
     return { statusCode: 200, headers, body: response.text };
   } catch (error) {
     return { statusCode: 500, headers, body: JSON.stringify({ error: "AI Engine capacity reached." }) };
