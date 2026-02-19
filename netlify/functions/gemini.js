@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 export const handler = async (event) => {
   const headers = {
@@ -10,57 +9,98 @@ export const handler = async (event) => {
   };
 
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
-    if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+    // Handle CORS preflight
+    if (event.httpMethod === "OPTIONS") {
+      return {
+        statusCode: 204,
+        headers
+      };
+    }
+
+    // Allow only POST
+    if (event.httpMethod !== "POST") {
+      return {
+        statusCode: 405,
+        headers,
+        body: JSON.stringify({ error: "Method Not Allowed" })
+      };
+    }
 
     const body = JSON.parse(event.body || "{}");
-    const { filename, language, frames = [] } = body;
+    const { filename = "Unknown File", language = "English" } = body;
 
+    // Get API key from Netlify environment variables
     const apiKey = process.env.API_KEY;
-    if (!apiKey) return { statusCode: 500, headers, body: JSON.stringify({ error: "Missing API Configuration" }) };
 
-    /* Always create a new instance right before making an API call */
+    if (!apiKey) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: "Missing API Key in environment variables" })
+      };
+    }
+
+    // Initialize Gemini client
     const ai = new GoogleGenAI({ apiKey });
 
+    // Call Gemini (TEXT ONLY — no base64 images)
     const response = await ai.models.generateContent({
-      /* Using gemini-3-flash-preview to match the UI's 'Flash Engine' description */
-      model: "gemini-3-flash-preview",
-      contents: {
-        parts: [
-          { text: `Scan: "${filename}" (${language}). Extract 8 high-impact segments (30-45s each). Return JSON.` },
-          ...frames.slice(0, 8).map((f) => ({
-            inlineData: {
-              mimeType: "image/jpeg",
-              data: f.split(",")[1]
+      model: "gemini-1.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `
+Analyze video "${filename}" in ${language}.
+Extract 8 high-impact viral segments (30-45 seconds each).
+
+Return ONLY a valid JSON array with:
+[
+  {
+    "start": "00:00:00",
+    "end": "00:00:30",
+    "hook": "...",
+    "caption": "...",
+    "score": 0-100,
+    "reasoning": "...",
+    "duration": "30s"
+  }
+]
+              `
             }
-          }))
-        ]
-      },
-      config: {
-        systemInstruction: "Professional Video Psychologist. Return JSON array of 8 segments.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              start: { type: Type.STRING },
-              end: { type: Type.STRING },
-              hook: { type: Type.STRING },
-              caption: { type: Type.STRING },
-              score: { type: Type.NUMBER },
-              reasoning: { type: Type.STRING },
-              duration: { type: Type.STRING }
-            },
-            required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
-          }
+          ]
         }
-      }
+      ]
     });
 
-    /* Use response.text directly as it is a getter */
-    return { statusCode: 200, headers, body: response.text };
+    // Safely parse response
+    let parsed;
+
+    try {
+      parsed = JSON.parse(response.text);
+    } catch (e) {
+      parsed = response.text; // fallback if Gemini returns plain text
+    }
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        payload: parsed
+      })
+    };
+
   } catch (error) {
-    return { statusCode: 500, headers, body: JSON.stringify({ error: "AI Engine capacity reached." }) };
+    console.error("Gemini Function Error:", error);
+
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({
+        error: error.message || "AI processing failed"
+      })
+    };
   }
 };
