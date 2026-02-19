@@ -1,32 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipMantra Pro – AI Viral Analytics</title>
-  <meta name="description" content="Secure, high-speed viral clip extraction using Gemini 3.0. Cloud-optimized for maximum performance.">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232563eb'/%3E%3Cpath d='M9.5 7.5L16.5 12L9.5 16.5V7.5Z' fill='white'/%3E%3C/svg%3E">
+  <!-- SEO & Social Sharing -->
+  <title>ClipMantra – Free AI Viral Clip Maker | Gemini-Powered Shorts</title>
+  <meta name="description" content="ClipMantra is a 100% free, browser-based AI tool that turns long videos into viral shorts and reels using Google's Gemini Flash. No signup, unlimited scans." />
+  <meta name="keywords" content="AI video editor, viral clips, shorts maker, Gemini AI, free clip extractor, reels generator" />
   
+  <!-- Open Graph / Twitter Cards (good for sharing) -->
+  <meta property="og:title" content="ClipMantra – Free AI Viral Clip Maker" />
+  <meta property="og:description" content="Extract viral moments from any video instantly. Powered by Gemini Flash – completely free & browser-only." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://clipmantraai.netlify.app/" />
+  <meta property="og:image" content="/og-image.jpg" /> <!-- Add this file if you have one -->
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232563eb'/%3E%3Cpath d='M9.5 7.5L16.5 12L9.5 16.5V7.5Z' fill='white'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS (CDN – fine for prototypes) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+
+  <!-- Custom Styles -->
   <style>
-    body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      overflow-x: hidden;
-      background: #020617;
+    :root {
+      --bg-primary: #020617;
+      --glass-bg: rgba(15, 23, 42, 0.4);
     }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: white;
+      overflow-x: hidden;
+      margin: 0;
+    }
+
     .mono {
       font-family: 'JetBrains Mono', monospace;
     }
+
     .glass-card {
-      background: rgba(15, 23, 42, 0.4);
+      background: var(--glass-bg);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
     }
+
     .gradient-blue {
       background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     }
+
+    /* Subtle noise overlay */
     .bg-noise::after {
       content: "";
       position: fixed;
@@ -37,21 +68,25 @@
       pointer-events: none;
     }
   </style>
+
+  <!-- Import Map for ESM imports -->
   <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "mp4-muxer": "https://esm.sh/mp4-muxer@^4.0.1"
+  {
+    "imports": {
+      "react": "https://esm.sh/react@^19.2.4",
+      "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+      "react/": "https://esm.sh/react@^19.2.4/",
+      "@google/generative-ai": "https://esm.sh/@google/generative-ai@^0.21.0",
+      "mp4-muxer": "https://esm.sh/mp4-muxer@^4.0.1"
+    }
   }
-}
-</script>
+  </script>
 </head>
+
 <body class="bg-noise">
   <div id="root"></div>
+
+  <!-- Main app entry -->
   <script type="module" src="./index.tsx"></script>
 </body>
 </html>
