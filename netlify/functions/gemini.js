@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const handler = async (event) => {
   const headers = {
@@ -21,8 +21,8 @@ export const handler = async (event) => {
       };
     }
 
-    const body = JSON.parse(event.body || "{}");
-    const { filename = "Unknown Video", language = "English" } = body;
+    const { filename = "Unknown Video", language = "English" } =
+      JSON.parse(event.body || "{}");
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
@@ -33,47 +33,38 @@ export const handler = async (event) => {
       };
     }
 
-    const ai = new GoogleGenAI({ apiKey });
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Analyze video "${filename}" in ${language}.
-Extract 8 viral segments (30-45 seconds each).
-
-Return ONLY valid JSON array:
-[
-  {
-    "start": "00:00:00",
-    "end": "00:00:30",
-    "hook": "...",
-    "caption": "...",
-    "score": 90,
-    "reasoning": "...",
-    "duration": "30s"
-  }
-]`
-            }
-          ]
-        }
-      ]
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-latest"
     });
+
+    const result = await model.generateContent(`
+Analyze video "${filename}" in ${language}.
+Extract 8 viral segments (30–45 seconds each).
+
+Return ONLY valid JSON array.
+`);
+
+    const text = result.response.text();
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        payload: response.text
+        payload: text
       })
     };
 
   } catch (error) {
     console.error("Gemini Error:", error);
+
     return {
       statusCode: 500,
       headers,
+      body: JSON.stringify({
+        error: error.message || "AI processing failed"
+      })
+    };
+  }
+};
