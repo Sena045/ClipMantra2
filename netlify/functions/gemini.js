@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export const handler = async (event) => {
   const headers = {
@@ -8,78 +8,60 @@ export const handler = async (event) => {
     "Content-Type": "application/json"
   };
 
+  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
+
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
-    if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
-
-    const body = JSON.parse(event.body || "{}");
-    const { filename, language, frames = [] } = body;
-
+    const { filename, language, frames = [] } = JSON.parse(event.body || "{}");
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "API Key missing" }) };
-    }
 
-    // Use the official client
-    const genAI = new GoogleGenerativeAI(apiKey);
+    // 1. Initialize the new Client
+    const ai = new GoogleGenAI({ apiKey });
 
-    // Schema definition for forced JSON output
-    const schema = {
-      type: SchemaType.ARRAY,
-      items: {
-        type: SchemaType.OBJECT,
-        properties: {
-          start: { type: SchemaType.STRING },
-          end: { type: SchemaType.STRING },
-          hook: { type: SchemaType.STRING },
-          caption: { type: SchemaType.STRING },
-          score: { type: SchemaType.NUMBER },
-          reasoning: { type: SchemaType.STRING },
-          duration: { type: SchemaType.STRING }
-        },
-        required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"],
-      },
-    };
+    // 2. Use the modern model name
+    const modelName = "gemini-3-flash-preview"; 
 
-    // Switching to 1.5-flash to solve the Quota (429) and Timeout (504) issues
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3-flash-preview",
-      systemInstruction: `You are an expert Viral Video Strategist. Analyze video frames from "${filename}" for ${language} audiences. Extract 8 segments (30-45s) with high viral potential.`,
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
+    const systemInstruction = `Analyze video frames for "${filename}". 
+    Return a JSON array of 8 viral segments with keys: start, end, hook, caption, score, reasoning, duration.`;
+
+    // 3. New generateContent syntax
+    const response = await ai.models.generateContent({
+      model: modelName,
+      system_instruction: systemInstruction,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: `Analyze segments for language: ${language}` },
+            ...frames.slice(0, 8).map(f => ({
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: f.includes(",") ? f.split(",")[1] : f
+              }
+            }))
+          ]
+        }
+      ],
+      config: {
+        response_mime_type: "application/json"
       }
     });
 
-    const parts = [
-      { text: "Analyze these frames and return the viral segments in the requested JSON format." },
-      ...frames.slice(0, 8).map((f) => ({
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: f.includes(",") ? f.split(",")[1] : f
-        }
-      }))
-    ];
-
-    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
-    const response = await result.response;
-    const output = response.text(); // This is a function in the official SDK
-
-    return { 
-      statusCode: 200, 
-      headers, 
-      body: JSON.stringify({ success: true, payload: JSON.parse(output) }) 
+    // 4. Access text using the new property
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({
+        success: true,
+        payload: JSON.parse(response.text)
+      })
     };
 
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return { 
-      statusCode: 500, 
-      headers, 
-      body: JSON.stringify({ 
-        error: error.message,
-        type: "AI_PIPELINE_ERROR" 
-      }) 
+    console.error("Gemini 3 Error:", error);
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: error.message })
     };
   }
 };
