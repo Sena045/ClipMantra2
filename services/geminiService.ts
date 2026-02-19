@@ -1,98 +1,81 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-// Use the Vite-specific way to access environment variables
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (!API_KEY) {
-  console.error("Gemini API key is missing in environment variables");
-}
-
-const genAI = new GoogleGenerativeAI(API_KEY || "");
-
-export interface GeminiResponse {
-  success: boolean;
-  payload: string;
-  error?: string;
-}
+import { GoogleGenAI } from "@google/genai";
 
 /**
- * Renamed from analyzeVideo to generateViralShorts to fix the Netlify Build Error
+ * Service to handle Gemini AI video analysis
+ * @param {string} apiKey - Your Google AI Studio API Key
  */
-export async function generateViralShorts(
-  file: File,
-  language: string = "English"
-): Promise<GeminiResponse> {
-  try {
-    // 1.5 Flash is the most reliable for mixed-media free tier
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+export class GeminiService {
+  constructor(apiKey) {
+    if (!apiKey) throw new Error("API Key is required");
+    this.client = new GoogleGenAI({ apiKey });
+  }
 
-    // Safety check for file size
-    if (file.size > 20 * 1024 * 1024) { 
-      return { 
-        success: false, 
-        payload: "", 
-        error: "File is too large. Please use a video under 20MB." 
+  /**
+   * Generates viral short ideas from a video file
+   * @param {File|Blob} file - The video file
+   * @param {string} language - Target language (default: English)
+   */
+  async generateViralShorts(file, language = "English") {
+    try {
+      // Use the stable flash model for video tasks
+      const modelName = "gemini-2.0-flash"; 
+
+      const base64Data = await this._fileToBase64(file);
+
+      const prompt = `Analyze this video "${file.name || 'video'}" for a ${language} audience.
+      Identify 8 high-impact segments (30-45s each) that would go viral on TikTok or Reels.
+      Return ONLY a JSON array of objects with keys: start, end, hook, caption, score, reasoning.`;
+
+      const response = await this.client.models.generateContent({
+        model: modelName,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inline_data: {
+                  mime_type: file.type || "video/mp4",
+                  data: base64Data
+                }
+              },
+              { text: prompt }
+            ]
+          }
+        ],
+        config: {
+          response_mime_type: "application/json"
+        }
+      });
+
+      // The new SDK returns text directly on the response object
+      return {
+        success: true,
+        payload: JSON.parse(response.text)
+      };
+
+    } catch (error) {
+      console.error("Gemini Error:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to analyze video."
       };
     }
-
-    const base64 = await fileToBase64(file);
-
-    const prompt = `You are an expert Viral Video Strategist. 
-    Analyze this video file "${file.name}" for a ${language} speaking audience.
-    Identify 8 high-impact segments (30-45s each).
-    
-    Return ONLY a valid JSON array of objects with these keys: 
-    "start", "end", "hook", "caption", "score", "reasoning", "duration".`;
-
-    const contents = [
-      {
-        role: "user",
-        parts: [
-          {
-            inlineData: {
-              mimeType: file.type || "video/mp4",
-              data: base64,
-            },
-          },
-          { text: prompt },
-        ],
-      },
-    ];
-
-    const result = await model.generateContent(contents);
-    const response = await result.response;
-    const text = response.text();
-
-    return { success: true, payload: text };
-
-  } catch (err: any) {
-    console.error("Gemini analysis failed:", err);
-    
-    // Check for common "I can't watch videos" refusal or Safety filters
-    if (err.message?.toLowerCase().includes("safety") || err.message?.toLowerCase().includes("blocked")) {
-        return { success: false, payload: "", error: "Content was flagged by AI safety filters." };
-    }
-
-    return { 
-      success: false, 
-      payload: "", 
-      error: err.message || "Failed to process video. Ensure it's a valid MP4/MOV." 
-    };
   }
-}
 
-/**
- * Helper to convert file to base64 and strip the prefix
- */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1]; // remove data:video/mp4;base64,
-      resolve(base64);
-    };
-    reader.onerror = (e) => reject(e);
-    reader.readAsDataURL(file);
-  });
+  /**
+   * Helper to convert File to raw Base64 string
+   */
+  _fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        // Strip the "data:video/mp4;base64," prefix
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
 }
