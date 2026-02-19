@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import { GoogleGenAI, Type } from "@google/genai";
 
 export const handler = async (event) => {
   const headers = {
@@ -8,51 +9,96 @@ export const handler = async (event) => {
     "Content-Type": "application/json"
   };
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
-  }
-
   try {
-    const { filename = "Unknown File", language = "English" } = JSON.parse(event.body || "{}");
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
+    if (event.httpMethod !== "POST") return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+
+    const body = JSON.parse(event.body || "{}");
+    const { filename, language, frames = [] } = body;
+
     const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("API Key missing in environment variables");
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "Server Configuration Error: API Key missing" }) };
+    }
 
-    if (!apiKey) throw new Error("Missing API Key");
+    /* Create new instance right before call as per guidelines */
+    const ai = new GoogleGenAI({ apiKey });
 
-    // 1. Initialize with correct package name
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // 2. Use Gemini 1.5 Flash (much faster for 10s Netlify limits)
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json", // Forces JSON output
+    const systemInstruction = `You are an expert Viral Video Strategist and Psychologist.
+Your task is to analyze video frames from "${filename}" and identify high-engagement segments.
+Segments MUST:
+1. Have a strong "hook" (an attention-grabbing start).
+2. Be 30-45 seconds in duration.
+3. Target the ${language} speaking audience.
+4. Be algorithmically optimized for TikTok, Reels, and YouTube Shorts.
+
+Return ONLY a JSON array of 8 objects. Ensure timestamps (start/end) are realistic for a standard length video.`;
+
+    /* Fixed typo generatceContent -> generateContent and upgraded to gemini-3-pro-preview for reasoning task */
+    const response = await ai.models.generateContent({
+      model: "gemini-3-pro-preview",
+      contents: {
+        parts: [
+          { text: `Analyze the attached frames and generate viral clip segments. Language: ${language}.` },
+          ...frames.slice(0, 8).map((f) => {
+            const base64Data = f.includes(",") ? f.split(",")[1] : f;
+            return {
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: base64Data
+              }
+            };
+          })
+        ]
+      },
+      config: {
+        systemInstruction,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              start: { type: Type.STRING, description: "Start time in MM:SS format" },
+              end: { type: Type.STRING, description: "End time in MM:SS format" },
+              hook: { type: Type.STRING, description: "The attention-grabbing hook text" },
+              caption: { type: Type.STRING, description: "A viral caption for the clip" },
+              score: { type: Type.NUMBER, description: "Viral impact score from 0-100" },
+              reasoning: { type: Type.STRING, description: "Brief psychological reasoning" },
+              duration: { type: Type.STRING, description: "Duration string (e.g. '35s')" }
+            },
+            required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"],
+            propertyOrdering: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
+          }
+        }
       }
     });
 
-    const prompt = `Analyze video "${filename}" in ${language}. 
-    Extract 8 high-impact viral segments (30-45s each). 
-    Return a JSON array of objects with keys: start, end, hook, caption, score, reasoning, duration.`;
+    if (!response.candidates?.[0]) {
+      throw new Error("AI Engine returned no candidates. Please try again.");
+    }
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text(); // Note: .text() is a function call
+    /* Accessing text property directly as per guidelines */
+    const output = response.text;
+    if (!output) {
+      throw new Error("AI Engine returned an empty response.");
+    }
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
-        success: true,
-        payload: JSON.parse(text)
-      })
+    return { 
+      statusCode: 200, 
+      headers, 
+      body: output 
     };
-
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ error: error.message || "AI Timeout or Error" })
+    console.error("Gemini Function Error:", error);
+    return { 
+      statusCode: 500, 
+      headers, 
+      body: JSON.stringify({ 
+        error: error.message || "Viral Engine encountered a latency error.",
+        type: "AI_PIPELINE_ERROR"
+      }) 
     };
   }
 };
