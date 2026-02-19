@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const handler = async (event) => {
   const headers = {
@@ -8,99 +8,51 @@ export const handler = async (event) => {
     "Content-Type": "application/json"
   };
 
+  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, headers, body: JSON.stringify({ error: "Method Not Allowed" }) };
+  }
+
   try {
-    // Handle CORS preflight
-    if (event.httpMethod === "OPTIONS") {
-      return {
-        statusCode: 204,
-        headers
-      };
-    }
-
-    // Allow only POST
-    if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 405,
-        headers,
-        body: JSON.stringify({ error: "Method Not Allowed" })
-      };
-    }
-
-    const body = JSON.parse(event.body || "{}");
-    const { filename = "Unknown File", language = "English" } = body;
-
-    // Get API key from Netlify environment variables
+    const { filename = "Unknown File", language = "English" } = JSON.parse(event.body || "{}");
     const apiKey = process.env.API_KEY;
 
-    if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({ error: "Missing API Key in environment variables" })
-      };
-    }
+    if (!apiKey) throw new Error("Missing API Key");
 
-    // Initialize Gemini client
-    const ai = new GoogleGenAI({ apiKey });
-
-    // Call Gemini (TEXT ONLY — no base64 images)
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `
-Analyze video "${filename}" in ${language}.
-Extract 8 high-impact viral segments (30-45 seconds each).
-
-Return ONLY a valid JSON array with:
-[
-  {
-    "start": "00:00:00",
-    "end": "00:00:30",
-    "hook": "...",
-    "caption": "...",
-    "score": 0-100,
-    "reasoning": "...",
-    "duration": "30s"
-  }
-]
-              `
-            }
-          ]
-        }
-      ]
+    // 1. Initialize with correct package name
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // 2. Use Gemini 1.5 Flash (much faster for 10s Netlify limits)
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json", // Forces JSON output
+      }
     });
 
-    // Safely parse response
-    let parsed;
+    const prompt = `Analyze video "${filename}" in ${language}. 
+    Extract 8 high-impact viral segments (30-45s each). 
+    Return a JSON array of objects with keys: start, end, hook, caption, score, reasoning, duration.`;
 
-    try {
-      parsed = JSON.parse(response.text);
-    } catch (e) {
-      parsed = response.text; // fallback if Gemini returns plain text
-    }
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text(); // Note: .text() is a function call
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        payload: parsed
+        payload: JSON.parse(text)
       })
     };
 
   } catch (error) {
-    console.error("Gemini Function Error:", error);
-
+    console.error("Gemini Error:", error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({
-        error: error.message || "AI processing failed"
-      })
+      body: JSON.stringify({ error: error.message || "AI Timeout or Error" })
     };
   }
 };
