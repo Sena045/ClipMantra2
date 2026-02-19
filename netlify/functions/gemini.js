@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 export const handler = async (event) => {
   const headers = {
@@ -18,86 +17,68 @@ export const handler = async (event) => {
 
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      console.error("API Key missing in environment variables");
-      return { statusCode: 500, headers, body: JSON.stringify({ error: "Server Configuration Error: API Key missing" }) };
+      return { statusCode: 500, headers, body: JSON.stringify({ error: "API Key missing" }) };
     }
 
-    /* Create new instance right before call as per guidelines */
-    const ai = new GoogleGenAI({ apiKey });
+    // Use the official client
+    const genAI = new GoogleGenerativeAI(apiKey);
 
-    const systemInstruction = `You are an expert Viral Video Strategist and Psychologist.
-Your task is to analyze video frames from "${filename}" and identify high-engagement segments.
-Segments MUST:
-1. Have a strong "hook" (an attention-grabbing start).
-2. Be 30-45 seconds in duration.
-3. Target the ${language} speaking audience.
-4. Be algorithmically optimized for TikTok, Reels, and YouTube Shorts.
-
-Return ONLY a JSON array of 8 objects. Ensure timestamps (start/end) are realistic for a standard length video.`;
-
-    /* Fixed typo generatceContent -> generateContent and upgraded to gemini-3-pro-preview for reasoning task */
-    const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: {
-        parts: [
-          { text: `Analyze the attached frames and generate viral clip segments. Language: ${language}.` },
-          ...frames.slice(0, 8).map((f) => {
-            const base64Data = f.includes(",") ? f.split(",")[1] : f;
-            return {
-              inlineData: {
-                mimeType: "image/jpeg",
-                data: base64Data
-              }
-            };
-          })
-        ]
+    // Schema definition for forced JSON output
+    const schema = {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          start: { type: SchemaType.STRING },
+          end: { type: SchemaType.STRING },
+          hook: { type: SchemaType.STRING },
+          caption: { type: SchemaType.STRING },
+          score: { type: SchemaType.NUMBER },
+          reasoning: { type: SchemaType.STRING },
+          duration: { type: SchemaType.STRING }
+        },
+        required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"],
       },
-      config: {
-        systemInstruction,
+    };
+
+    // Switching to 1.5-flash to solve the Quota (429) and Timeout (504) issues
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: `You are an expert Viral Video Strategist. Analyze video frames from "${filename}" for ${language} audiences. Extract 8 segments (30-45s) with high viral potential.`,
+      generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              start: { type: Type.STRING, description: "Start time in MM:SS format" },
-              end: { type: Type.STRING, description: "End time in MM:SS format" },
-              hook: { type: Type.STRING, description: "The attention-grabbing hook text" },
-              caption: { type: Type.STRING, description: "A viral caption for the clip" },
-              score: { type: Type.NUMBER, description: "Viral impact score from 0-100" },
-              reasoning: { type: Type.STRING, description: "Brief psychological reasoning" },
-              duration: { type: Type.STRING, description: "Duration string (e.g. '35s')" }
-            },
-            required: ["start", "end", "hook", "caption", "score", "reasoning", "duration"],
-            propertyOrdering: ["start", "end", "hook", "caption", "score", "reasoning", "duration"]
-          }
-        }
+        responseSchema: schema,
       }
     });
 
-    if (!response.candidates?.[0]) {
-      throw new Error("AI Engine returned no candidates. Please try again.");
-    }
+    const parts = [
+      { text: "Analyze these frames and return the viral segments in the requested JSON format." },
+      ...frames.slice(0, 8).map((f) => ({
+        inlineData: {
+          mimeType: "image/jpeg",
+          data: f.includes(",") ? f.split(",")[1] : f
+        }
+      }))
+    ];
 
-    /* Accessing text property directly as per guidelines */
-    const output = response.text;
-    if (!output) {
-      throw new Error("AI Engine returned an empty response.");
-    }
+    const result = await model.generateContent({ contents: [{ role: "user", parts }] });
+    const response = await result.response;
+    const output = response.text(); // This is a function in the official SDK
 
     return { 
       statusCode: 200, 
       headers, 
-      body: output 
+      body: JSON.stringify({ success: true, payload: JSON.parse(output) }) 
     };
+
   } catch (error) {
-    console.error("Gemini Function Error:", error);
+    console.error("Gemini Error:", error);
     return { 
       statusCode: 500, 
       headers, 
       body: JSON.stringify({ 
-        error: error.message || "Viral Engine encountered a latency error.",
-        type: "AI_PIPELINE_ERROR"
+        error: error.message,
+        type: "AI_PIPELINE_ERROR" 
       }) 
     };
   }
