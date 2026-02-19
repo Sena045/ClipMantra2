@@ -14,31 +14,35 @@ export const handler = async (event) => {
     const { filename, language, frames = [] } = JSON.parse(event.body || "{}");
     const apiKey = process.env.API_KEY;
 
-    // 1. Initialize the new Client
     const ai = new GoogleGenAI({ apiKey });
-
-    // 2. Use the modern model name
     const modelName = "gemini-3-flash-preview"; 
 
     const systemInstruction = `Analyze video frames for "${filename}". 
     Return a JSON array of 8 viral segments with keys: start, end, hook, caption, score, reasoning, duration.`;
 
-    // 3. New generateContent syntax
+    // TRANSFORM PARTS: Ensure snake_case and raw base64
+    const contentParts = [
+      { text: `Analyze segments for language: ${language}` },
+      ...frames.slice(0, 8).map(f => {
+        // Strip the Data URL prefix if it exists
+        const base64Data = f.includes(",") ? f.split(",")[1] : f;
+        
+        return {
+          inline_data: {
+            mime_type: "image/jpeg",
+            data: base64Data
+          }
+        };
+      })
+    ];
+
     const response = await ai.models.generateContent({
       model: modelName,
       system_instruction: systemInstruction,
       contents: [
         {
           role: "user",
-          parts: [
-            { text: `Analyze segments for language: ${language}` },
-            ...frames.slice(0, 8).map(f => ({
-              inline_data: {
-                mime_type: "image/jpeg",
-                data: f.includes(",") ? f.split(",")[1] : f
-              }
-            }))
-          ]
+          parts: contentParts
         }
       ],
       config: {
@@ -46,7 +50,6 @@ export const handler = async (event) => {
       }
     });
 
-    // 4. Access text using the new property
     return {
       statusCode: 200,
       headers,
@@ -61,7 +64,10 @@ export const handler = async (event) => {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: error.message })
+      body: JSON.stringify({ 
+        error: error.message,
+        suggestion: "Ensure frames are valid base64 strings without data:image/jpeg headers."
+      })
     };
   }
 };
