@@ -43,7 +43,7 @@ export const handler = async (event) => {
 
     // Switching to 1.5-flash to solve the Quota (429) and Timeout (504) issues
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       systemInstruction: `You are an expert Viral Video Strategist. Analyze video frames from "${filename}" for ${language} audiences. Extract 8 segments (30-45s) with high viral potential.`,
       generationConfig: {
         responseMimeType: "application/json",
