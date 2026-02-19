@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 export const handler = async (event) => {
   const headers = {
@@ -33,26 +33,30 @@ export const handler = async (event) => {
       };
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest"
-    });
+    const ai = new GoogleGenAI({ apiKey });
 
-    const result = await model.generateContent(`
-Analyze video "${filename}" in ${language}.
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Analyze video "${filename}" in ${language}.
 Extract 8 viral segments (30–45 seconds each).
-
-Return ONLY valid JSON array.
-`);
-
-    const text = result.response.text();
+Return ONLY a valid JSON array.`
+            }
+          ]
+        }
+      ]
+    });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        payload: text
+        payload: response.text
       })
     };
 
@@ -63,7 +67,7 @@ Return ONLY valid JSON array.
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: error.message || "AI processing failed"
+        error: error.message
       })
     };
   }
